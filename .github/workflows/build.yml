@@ -1,0 +1,82 @@
+name: Build FastGithub
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '7.0.x'
+
+    - name: Restore dependencies
+      run: dotnet restore FastGithub.sln
+
+    - name: Build
+      run: dotnet build FastGithub.sln --no-restore --configuration Release
+
+    - name: Test
+      run: dotnet test FastGithub.sln --no-build --configuration Release --verbosity normal
+
+  build-multi-platform:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            runtime: linux-x64
+            artifact-name: fastgithub-linux-x64
+          - os: windows-latest
+            runtime: win-x64
+            artifact-name: fastgithub-win-x64
+          - os: macos-latest
+            runtime: osx-x64
+            artifact-name: fastgithub-osx-x64
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '7.0.x'
+
+    - name: Build for ${{ matrix.os }}
+      run: |
+        dotnet restore FastGithub.sln
+        dotnet build FastGithub.sln --configuration Release
+
+    - name: Publish single-file artifacts with UI
+      shell: bash
+      run: |
+        # 发布主程序
+        dotnet publish FastGithub/FastGithub.csproj \
+          -c Release \
+          -r ${{ matrix.runtime }} \
+          --self-contained true \
+          -p:PublishSingleFile=true \
+          -p:PublishTrimmed=true \
+          -o ./publish/${{ matrix.runtime }}
+
+        # 发布 UI (仅 Windows)
+        if [ "${{ matrix.runtime }}" == "win-x64" ]; then
+          dotnet publish FastGithub.UI/FastGithub.UI.csproj \
+            -c Release \
+            -o ./publish/${{ matrix.runtime }}
+        fi
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.artifact-name }}
+        path: ./publish/${{ matrix.runtime }}
