@@ -27,7 +27,7 @@ namespace FastGithub.UI
             settings.Click += (s, e) =>
             {
                 var settingsWindow = new SettingsWindow();
-                settingsWindow.Owner = this;
+                settingsWindow.Owner = this.IsVisible ? this : null;
                 settingsWindow.ShowDialog();
             };
 
