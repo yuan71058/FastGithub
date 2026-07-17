@@ -1,5 +1,8 @@
 # FastGithub
 
+![Version](https://img.shields.io/badge/version-2.1.7-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+
 GitHub 加速神器，解决 GitHub 打不开、用户头像无法加载、Releases 无法上传下载、git clone/pull/push 失败等问题。
 
 ## 功能特性
@@ -83,3 +86,16 @@ FastGithub 为每台主机生成独立的自签名 CA 证书（保存在 `cacert
 ## 许可证
 
 [MIT License](LICENSE)
+
+## 更新日志
+
+### v2.1.7 (2026-07-17)
+- 修复主窗口隐藏时，右键托盘图标打开设置窗口导致程序崩溃的问题
+- 检查更新功能指向本项目 releases 页面
+- 单文件发布优化，后端使用 PublishSingleFile，UI 使用 Costura.Fody
+- 编译前自动清空 bin/obj 目录
+
+### v2.1.6
+- 添加开机自启功能（可选）
+- 添加启动后最小化功能（可选）
+- 系统托盘常驻，右键可快速操作
