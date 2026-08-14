@@ -1,3 +1,5 @@
+
+
 # FastGithub
 
 ![Version](https://img.shields.io/badge/version-2.1.7-blue)
@@ -26,8 +28,8 @@ GitHub 加速神器，解决 GitHub 打不开、用户头像无法加载、Relea
 ### Windows 服务
 
 ```bash
-fastgithub.exe start   # 安装并启动服务
-fastgithub.exe stop    # 卸载并删除服务
+fastgithub.exe start   # 安装并启动服务（需管理员权限）
+fastgithub.exe stop    # 停止并卸载服务（需管理员权限）
 ```
 
 ### Linux
