@@ -1,4 +1,4 @@
-﻿using FastGithub.DomainResolve;
+using FastGithub.DomainResolve;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -18,6 +18,7 @@ namespace FastGithub
         {
             services.TryAddSingleton<DnsClient>();
             services.TryAddSingleton<DnscryptProxy>();
+            services.TryAddSingleton<HostsService>();
             services.TryAddSingleton<PersistenceService>();
             services.TryAddSingleton<IPAddressService>();
             services.TryAddSingleton<IDomainResolver, DomainResolver>();

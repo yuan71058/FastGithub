@@ -1,4 +1,4 @@
-﻿using DNS.Client;
+using DNS.Client;
 using DNS.Client.RequestResolver;
 using DNS.Protocol;
 using DNS.Protocol.ResourceRecords;
@@ -28,6 +28,7 @@ namespace FastGithub.DomainResolve
 
         private readonly DnscryptProxy dnscryptProxy;
         private readonly FastGithubConfig fastGithubConfig;
+        private readonly HostsService hostsService;
         private readonly ILogger<DnsClient> logger;
 
         private readonly ConcurrentDictionary<string, SemaphoreSlim> semaphoreSlims = new();
@@ -52,10 +53,12 @@ namespace FastGithub.DomainResolve
         public DnsClient(
             DnscryptProxy dnscryptProxy,
             FastGithubConfig fastGithubConfig,
+            HostsService hostsService,
             ILogger<DnsClient> logger)
         {
             this.dnscryptProxy = dnscryptProxy;
             this.fastGithubConfig = fastGithubConfig;
+            this.hostsService = hostsService;
             this.logger = logger;
         }
 
@@ -69,6 +72,19 @@ namespace FastGithub.DomainResolve
         public async IAsyncEnumerable<IPAddress> ResolveAsync(DnsEndPoint endPoint, bool fastSort, [EnumeratorCancellation] CancellationToken cancellationToken)
         {
             var hashSet = new HashSet<IPAddress>();
+
+            // 优先使用在线hosts源提供的IP作为候选
+            if (this.hostsService.TryGetAddresses(endPoint.Host, out var hostsAddresses))
+            {
+                foreach (var address in hostsAddresses)
+                {
+                    if (hashSet.Add(address) == true)
+                    {
+                        yield return address;
+                    }
+                }
+            }
+
             await foreach (var dns in this.GetDnsServersAsync(cancellationToken))
             {
                 var addresses = await this.LookupAsync(dns, endPoint, fastSort, cancellationToken);
