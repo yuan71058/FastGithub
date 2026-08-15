@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.NetworkInformation;
@@ -37,7 +37,7 @@ namespace FastGithub.Configuration
         /// <summary>
         /// UI内部通信端口
         /// </summary>
-        public static int UiHttpPort { get; } = GetAvailableTcpPort(38457);
+        public static int UiHttpPort { get; } = GetAvailableTcpPort(45678);
 
         /// <summary>
         /// 获取已监听的端口

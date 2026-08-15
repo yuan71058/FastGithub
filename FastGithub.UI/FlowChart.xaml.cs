@@ -1,4 +1,4 @@
-﻿using LiveCharts;
+using LiveCharts;
 using LiveCharts.Configurations;
 using LiveCharts.Wpf;
 using Newtonsoft.Json;
@@ -73,7 +73,7 @@ namespace FastGithub.UI
 
         private async Task FlushFlowStatisticsAsync(HttpClient httpClient)
         {
-            var response = await httpClient.GetAsync("http://localhost:38457/flowStatistics");
+            var response = await httpClient.GetAsync("http://localhost:45678/flowStatistics");
             var json = await response.EnsureSuccessStatusCode().Content.ReadAsStringAsync();
             var flowStatistics = JsonConvert.DeserializeObject<FlowStatistics>(json);
             if (flowStatistics == null)

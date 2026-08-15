@@ -1,6 +1,6 @@
 # FastGithub
 
-![Version](https://img.shields.io/badge/version-2.1.7-blue)
+![Version](https://img.shields.io/badge/version-2.2.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 GitHub 加速神器，解决 GitHub 打不开、用户头像无法加载、Releases 无法上传下载、git clone/pull/push 失败等问题。
@@ -61,7 +61,9 @@ docker-compose up -d
 
 | 协议 | 地址 | 端口 |
 |------|------|------|
-| HTTP/HTTPS | 127.0.0.1 | 38457 |
+| HTTP/HTTPS | 127.0.0.1 | 45678 |
+
+> Windows 平台系统代理端口为 `45678`；Linux/macOS 平台默认仍为 `38457`（对应 `appsettings.json` 中的 `HttpProxyPort`）。
 
 ## 常见问题
 
@@ -88,6 +90,10 @@ FastGithub 为每台主机生成独立的自签名 CA 证书（保存在 `cacert
 [MIT License](LICENSE)
 
 ## 更新日志
+
+### v2.2.0 (2026-08-15)
+- DNS 回退服务器改为国内公共 DNS（223.5.5.5 / 119.29.29.29 / 180.76.76.76）
+- Windows 系统代理端口由 38457 调整为 45678
 
 ### v2.1.7 (2026-07-17)
 - 修复主窗口隐藏时，右键托盘图标打开设置窗口导致程序崩溃的问题
