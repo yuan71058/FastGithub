@@ -23,6 +23,7 @@ namespace FastGithub.Http
         private readonly DomainConfig domainConfig;
         private readonly IDomainResolver domainResolver;
         private readonly TimeSpan connectTimeout = TimeSpan.FromSeconds(10d);
+        private static int refreshingToken = 0;
 
         /// <summary>
         /// HttpClientHandler
@@ -115,7 +116,34 @@ namespace FastGithub.Http
                 }
             }
 
-            throw new AggregateException("找不到任何可成功连接的IP", innerExceptions);
+            // 找不到任何可成功连接的IP时，自动触发IP更新，便于下次请求恢复
+            _ = this.RefreshIpAsync();
+            throw new AggregateException("找不到任何可成功连接的IP，已自动触发IP更新，请稍后重试", innerExceptions);
+        }
+
+        /// <summary>
+        /// 找不到任何可成功连接的IP时，自动触发IP更新
+        /// 后台执行，不阻塞当前请求；使用静态令牌避免并发重复刷新
+        /// </summary>
+        /// <returns></returns>
+        private async Task RefreshIpAsync()
+        {
+            if (Interlocked.Exchange(ref refreshingToken, 1) == 1)
+            {
+                return;
+            }
+
+            try
+            {
+                await this.domainResolver.RefreshAsync(CancellationToken.None);
+            }
+            catch (Exception)
+            {
+            }
+            finally
+            {
+                Interlocked.Exchange(ref refreshingToken, 0);
+            }
         }
 
         /// <summary>

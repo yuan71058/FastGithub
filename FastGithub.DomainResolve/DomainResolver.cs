@@ -19,6 +19,7 @@ namespace FastGithub.DomainResolve
         private readonly DnsClient dnsClient;
         private readonly PersistenceService persistence;
         private readonly IPAddressService addressService;
+        private readonly HostsService hostsService;
         private readonly ILogger<DomainResolver> logger;
         private readonly ConcurrentDictionary<DnsEndPoint, IPAddress[]> dnsEndPointAddress = new();
 
@@ -28,16 +29,19 @@ namespace FastGithub.DomainResolve
         /// <param name="dnsClient"></param>
         /// <param name="persistence"></param>
         /// <param name="addressService"></param>
+        /// <param name="hostsService"></param>
         /// <param name="logger"></param>
         public DomainResolver(
             DnsClient dnsClient,
             PersistenceService persistence,
             IPAddressService addressService,
+            HostsService hostsService,
             ILogger<DomainResolver> logger)
         {
             this.dnsClient = dnsClient;
             this.persistence = persistence;
             this.addressService = addressService;
+            this.hostsService = hostsService;
             this.logger = logger;
 
             foreach (var endPoint in persistence.ReadDnsEndPoints())
@@ -98,6 +102,19 @@ namespace FastGithub.DomainResolve
                     this.logger.LogInformation($"{dnsEndPoint.Host}:{dnsEndPoint.Port}->[{addressArray}]");
                 }
             }
+        }
+
+        /// <summary>
+        /// 刷新所有域名的IP（清空缓存并重新解析测速）
+        /// </summary>
+        /// <param name="cancellationToken"></param>
+        /// <returns></returns>
+        public async Task RefreshAsync(CancellationToken cancellationToken = default)
+        {
+            this.logger.LogInformation("手动触发IP刷新：清空缓存并重新解析测速");
+            this.addressService.ClearCache();
+            await this.TestSpeedAsync(cancellationToken);
+            await this.hostsService.RefreshAsync(cancellationToken);
         }
     }
 }

@@ -1,6 +1,6 @@
 # FastGithub
 
-![Version](https://img.shields.io/badge/version-2.2.0-blue)
+![Version](https://img.shields.io/badge/version-2.3.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 GitHub 加速神器，解决 GitHub 打不开、用户头像无法加载、Releases 无法上传下载、git clone/pull/push 失败等问题。
@@ -15,6 +15,7 @@ GitHub 加速神器，解决 GitHub 打不开、用户头像无法加载、Relea
 - **开机自启**（可选）
 - **启动后最小化**（可选）
 - 系统托盘常驻，右键可快速操作
+- 托盘右键「更新IP」可手动刷新 GitHub 域名 IP；连接失败时自动触发 IP 更新
 
 ## 部署方式
 
@@ -91,6 +92,11 @@ FastGithub 为每台主机生成独立的自签名 CA 证书（保存在 `cacert
 [MIT License](LICENSE)
 
 ## 更新日志
+
+### v2.3.0 (2026-09-18)
+- 新增托盘右键「更新IP」按钮，可手动刷新 GitHub 域名的 IP 解析
+- 当无法连接任何 IP 时自动触发 IP 更新，提升连接恢复速度
+- 新增内部 `/refresh-ip` 接口，用于触发 IP 缓存清空与重新解析测速
 
 ### v2.2.0 (2026-08-15)
 - DNS 回退服务器改为国内公共 DNS（223.5.5.5 / 119.29.29.29 / 180.76.76.76）

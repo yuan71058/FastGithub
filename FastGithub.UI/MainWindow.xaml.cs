@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Configuration;
 using System.Diagnostics;
+using System.Net.Http;
 using System.Reflection;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Interop;
 
@@ -23,6 +25,9 @@ namespace FastGithub.UI
             var upgrade = new System.Windows.Forms.MenuItem("检测更新(&U)");
             upgrade.Click += (s, e) => Process.Start(RELEASES_URI);
 
+            var refreshIp = new System.Windows.Forms.MenuItem("更新IP(&R)");
+            refreshIp.Click += async (s, e) => await this.RefreshIpAsync();
+
             var settings = new System.Windows.Forms.MenuItem("设置(&S)");
             settings.Click += (s, e) =>
             {
@@ -40,7 +45,7 @@ namespace FastGithub.UI
             {
                 Visible = true,
                 Text = FASTGITHUB_UI,
-                ContextMenu = new System.Windows.Forms.ContextMenu(new[] { upgrade, settings, exit }),
+                ContextMenu = new System.Windows.Forms.ContextMenu(new[] { refreshIp, upgrade, settings, exit }),
                 Icon = System.Drawing.Icon.ExtractAssociatedIcon(System.Windows.Forms.Application.ExecutablePath)
             };
 
@@ -60,6 +65,23 @@ namespace FastGithub.UI
             }
         }
 
+        /// <summary>
+        /// 通过UI内部通信端口请求fastgithub刷新IP
+        /// </summary>
+        /// <returns></returns>
+        private async Task RefreshIpAsync()
+        {
+            try
+            {
+                using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(10d) };
+                await httpClient.GetAsync("http://localhost:45678/refresh-ip");
+                this.notifyIcon.ShowBalloonTip(3000, FASTGITHUB_UI, "已发送IP更新请求，正在重新解析", System.Windows.Forms.ToolTipIcon.Info);
+            }
+            catch (Exception ex)
+            {
+                this.notifyIcon.ShowBalloonTip(3000, FASTGITHUB_UI, $"IP更新失败：{ex.Message}", System.Windows.Forms.ToolTipIcon.Error);
+            }
+        }
 
         /// <summary>
         /// 拦截最小化事件

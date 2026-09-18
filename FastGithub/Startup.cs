@@ -1,4 +1,5 @@
 using FastGithub.Configuration;
+using FastGithub.DomainResolve;
 using FastGithub.FlowAnalyze;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -131,6 +132,15 @@ namespace FastGithub
                 var flowStatistics = context.RequestServices.GetRequiredService<IFlowAnalyzer>().GetFlowStatistics();
                 var json = JsonSerializer.Serialize(flowStatistics, FlowStatisticsContext.Default.FlowStatistics);
                 return context.Response.WriteAsync(json);
+            });
+
+            // 触发IP刷新：清空缓存、重新解析测速，并刷新在线hosts源
+            app.MapGet("/refresh-ip", async context =>
+            {
+                var resolver = context.RequestServices.GetRequiredService<IDomainResolver>();
+                await resolver.RefreshAsync(context.RequestAborted);
+                context.Response.ContentType = "text/plain;charset=utf-8";
+                await context.Response.WriteAsync("IP更新已触发");
             });
         }
     }

@@ -41,6 +41,15 @@ namespace FastGithub.DomainResolve
         }
 
         /// <summary>
+        /// 清空IP缓存，强制后续重新解析与测速
+        /// </summary>
+        public void ClearCache()
+        {
+            (this.domainAddressCache as MemoryCache)?.Compact(1.0);
+            (this.addressElapsedCache as MemoryCache)?.Compact(1.0);
+        }
+
+        /// <summary>
         /// 并行获取可连接的IP
         /// </summary>
         /// <param name="dnsEndPoint"></param>
