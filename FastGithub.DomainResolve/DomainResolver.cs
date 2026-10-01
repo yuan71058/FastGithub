@@ -84,14 +84,25 @@ namespace FastGithub.DomainResolve
         /// </summary>
         /// <param name="cancellationToken"></param>
         /// <returns></returns>
-        public async Task TestSpeedAsync(CancellationToken cancellationToken)
+        public Task TestSpeedAsync(CancellationToken cancellationToken = default)
+        {
+            return this.TestSpeedAsync(hostsOnly: false, cancellationToken);
+        }
+
+        /// <summary>
+        /// 对所有节点进行测速
+        /// </summary>
+        /// <param name="hostsOnly">是否仅使用在线hosts源提供的IP</param>
+        /// <param name="cancellationToken"></param>
+        /// <returns></returns>
+        private async Task TestSpeedAsync(bool hostsOnly, CancellationToken cancellationToken)
         {
             foreach (var keyValue in this.dnsEndPointAddress.OrderBy(item => item.Value.Length))
             {
                 var dnsEndPoint = keyValue.Key;
                 var oldAddresses = keyValue.Value;
 
-                var newAddresses = await this.addressService.GetAddressesAsync(dnsEndPoint, oldAddresses, cancellationToken);
+                var newAddresses = await this.addressService.GetAddressesAsync(dnsEndPoint, oldAddresses, hostsOnly, cancellationToken);
                 this.dnsEndPointAddress[dnsEndPoint] = newAddresses;
 
                 var oldSegmentums = oldAddresses.Take(MAX_IP_COUNT);
@@ -111,10 +122,23 @@ namespace FastGithub.DomainResolve
         /// <returns></returns>
         public async Task RefreshAsync(CancellationToken cancellationToken = default)
         {
-            this.logger.LogInformation("手动触发IP刷新：清空缓存并重新解析测速");
+            this.logger.LogInformation("触发IP刷新：清空缓存并重新解析测速");
             this.addressService.ClearCache();
-            await this.TestSpeedAsync(cancellationToken);
+            await this.TestSpeedAsync(hostsOnly: false, cancellationToken);
             await this.hostsService.RefreshAsync(cancellationToken);
+        }
+
+        /// <summary>
+        /// 刷新所有域名的IP（仅使用在线hosts源，不发起DNS查询）
+        /// </summary>
+        /// <param name="cancellationToken"></param>
+        /// <returns></returns>
+        public async Task RefreshHostsAsync(CancellationToken cancellationToken = default)
+        {
+            this.logger.LogInformation("手动触发IP刷新：仅使用在线hosts源");
+            this.addressService.ClearCache();
+            await this.hostsService.RefreshAsync(cancellationToken);
+            await this.TestSpeedAsync(hostsOnly: true, cancellationToken);
         }
     }
 }

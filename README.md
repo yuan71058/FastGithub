@@ -64,7 +64,7 @@ Kestrel 反向代理（TLS 中间人 + YARP 转发 + SSH/Git 隧道）
 
 **IP 选路**：后台服务每秒对已知 IP 做 TCP 延迟测量，按延迟排序并剔除不可达 IP，结果持久化到 `dnsendpoints.json`。
 
-**DNS 优先级**：本地 `dnscrypt-proxy`（加密 DNS）→ 重试一次 → `FallbackDns`（223.5.5.5 / 119.29.29.29 / 180.76.76.76）→ 在线 hosts 源（默认 `https://raw.hellogithub.com/hosts`）。
+**IP 来源优先级**：在线 hosts 源（默认 `https://raw.hellogithub.com/hosts`）覆盖的域名**仅使用 hosts 源 IP**；hosts 源未覆盖的域名才走 DNS：本地 `dnscrypt-proxy`（加密 DNS）→ 重试一次 → `FallbackDns`（223.5.5.5 / 119.29.29.29 / 180.76.76.76）。
 
 **平台差异**
 
@@ -202,7 +202,7 @@ docker-compose up -d
 
 | 菜单项 | 说明 |
 |--------|------|
-| 更新IP(&R) | 请求 `/refresh-ip`，清空缓存并重新解析测速 |
+| 更新IP(&R) | 请求 `/refresh-ip`，拉取在线 hosts 源并重新测速（不发起 DNS 查询） |
 | 检测更新(&U) | 打开 Releases 页面 |
 | 设置(&S) | 开机自启、启动后最小化 |
 | 关闭应用(&C) | 退出（会同时结束后端 `fastgithub.exe`） |

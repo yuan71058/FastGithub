@@ -69,6 +69,16 @@ namespace FastGithub.DomainResolve
         }
 
         /// <summary>
+        /// 指定域名是否被hosts源覆盖
+        /// </summary>
+        /// <param name="host">域名</param>
+        /// <returns></returns>
+        public bool IsCovered(string host)
+        {
+            return this.mapping.TryGetValue(host, out var addresses) && addresses.Count > 0;
+        }
+
+        /// <summary>
         /// 解析hosts文本内容
         /// </summary>
         /// <param name="content">hosts文本</param>

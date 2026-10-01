@@ -68,13 +68,14 @@ namespace FastGithub.DomainResolve
         /// <param name="endPoint">远程结节</param>
         /// <param name="fastSort">是否使用快速排序</param>
         /// <param name="cancellationToken"></param>
+        /// <param name="hostsOnly">是否仅使用在线hosts源（跳过DNS查询）</param>
         /// <returns></returns>
-        public async IAsyncEnumerable<IPAddress> ResolveAsync(DnsEndPoint endPoint, bool fastSort, [EnumeratorCancellation] CancellationToken cancellationToken)
+        public async IAsyncEnumerable<IPAddress> ResolveAsync(DnsEndPoint endPoint, bool fastSort, [EnumeratorCancellation] CancellationToken cancellationToken, bool hostsOnly = false)
         {
             var hashSet = new HashSet<IPAddress>();
 
-            // 优先使用在线hosts源提供的IP作为候选
-            if (this.hostsService.TryGetAddresses(endPoint.Host, out var hostsAddresses))
+            // 在线hosts源覆盖的域名仅使用hosts源提供的IP，不混入DNS结果
+            if (this.hostsService.TryGetAddresses(endPoint.Host, out var hostsAddresses) && hostsAddresses.Count > 0)
             {
                 foreach (var address in hostsAddresses)
                 {
@@ -83,6 +84,13 @@ namespace FastGithub.DomainResolve
                         yield return address;
                     }
                 }
+                yield break;
+            }
+
+            // 手动刷新仅使用在线hosts源，未覆盖的域名不发起DNS查询
+            if (hostsOnly == true)
+            {
+                yield break;
             }
 
             await foreach (var dns in this.GetDnsServersAsync(cancellationToken))

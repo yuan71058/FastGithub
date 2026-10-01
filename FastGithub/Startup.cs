@@ -134,11 +134,11 @@ namespace FastGithub
                 return context.Response.WriteAsync(json);
             });
 
-            // 触发IP刷新：清空缓存、重新解析测速，并刷新在线hosts源
+            // 触发IP刷新：拉取在线hosts源并解析测速（不发起DNS查询）
             app.MapGet("/refresh-ip", async context =>
             {
                 var resolver = context.RequestServices.GetRequiredService<IDomainResolver>();
-                await resolver.RefreshAsync(context.RequestAborted);
+                await resolver.RefreshHostsAsync(context.RequestAborted);
                 context.Response.ContentType = "text/plain;charset=utf-8";
                 await context.Response.WriteAsync("IP更新已触发");
             });

@@ -31,5 +31,12 @@ namespace FastGithub.DomainResolve
         /// <param name="cancellationToken"></param>
         /// <returns></returns>
         Task RefreshAsync(CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// 刷新所有域名的IP（仅使用在线hosts源，不发起DNS查询）
+        /// </summary>
+        /// <param name="cancellationToken"></param>
+        /// <returns></returns>
+        Task RefreshHostsAsync(CancellationToken cancellationToken = default);
     }
 }

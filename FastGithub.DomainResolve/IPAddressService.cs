@@ -30,14 +30,17 @@ namespace FastGithub.DomainResolve
         private readonly IMemoryCache addressElapsedCache = new MemoryCache(Options.Create(new MemoryCacheOptions()));
 
         private readonly DnsClient dnsClient;
+        private readonly HostsService hostsService;
 
         /// <summary>
         /// IP服务
         /// </summary>
         /// <param name="dnsClient"></param>
-        public IPAddressService(DnsClient dnsClient)
+        /// <param name="hostsService"></param>
+        public IPAddressService(DnsClient dnsClient, HostsService hostsService)
         {
             this.dnsClient = dnsClient;
+            this.hostsService = hostsService;
         }
 
         /// <summary>
@@ -54,24 +57,28 @@ namespace FastGithub.DomainResolve
         /// </summary>
         /// <param name="dnsEndPoint"></param>
         /// <param name="oldAddresses"></param>
+        /// <param name="hostsOnly">是否仅使用在线hosts源提供的IP（不发起DNS查询）</param>
         /// <param name="cancellationToken"></param>
         /// <returns></returns>
-        public async Task<IPAddress[]> GetAddressesAsync(DnsEndPoint dnsEndPoint, IEnumerable<IPAddress> oldAddresses, CancellationToken cancellationToken)
+        public async Task<IPAddress[]> GetAddressesAsync(DnsEndPoint dnsEndPoint, IEnumerable<IPAddress> oldAddresses, bool hostsOnly, CancellationToken cancellationToken)
         {
             var ipEndPoints = new HashSet<IPEndPoint>();
 
-            // 历史未过期的IP节点
-            foreach (var address in oldAddresses)
+            // 历史未过期的IP节点（手动刷新、hosts源覆盖的域名均不保留历史DNS结果）
+            if (hostsOnly == false && this.hostsService.IsCovered(dnsEndPoint.Host) == false)
             {
-                var domainAddress = new DomainAddress(dnsEndPoint.Host, address);
-                if (this.domainAddressCache.TryGetValue(domainAddress, out _))
+                foreach (var address in oldAddresses)
                 {
-                    ipEndPoints.Add(new IPEndPoint(address, dnsEndPoint.Port));
+                    var domainAddress = new DomainAddress(dnsEndPoint.Host, address);
+                    if (this.domainAddressCache.TryGetValue(domainAddress, out _))
+                    {
+                        ipEndPoints.Add(new IPEndPoint(address, dnsEndPoint.Port));
+                    }
                 }
             }
 
             // 新解析出的IP节点
-            await foreach (var address in this.dnsClient.ResolveAsync(dnsEndPoint, fastSort: false, cancellationToken))
+            await foreach (var address in this.dnsClient.ResolveAsync(dnsEndPoint, fastSort: false, cancellationToken, hostsOnly))
             {
                 ipEndPoints.Add(new IPEndPoint(address, dnsEndPoint.Port));
                 var domainAddress = new DomainAddress(dnsEndPoint.Host, address);
