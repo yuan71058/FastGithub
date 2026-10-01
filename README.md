@@ -1,6 +1,6 @@
 # FastGithub
 
-![Version](https://img.shields.io/badge/version-2.3.0-blue)
+![Version](https://img.shields.io/badge/version-2.3.1-blue)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-informational)
 ![Framework](https://img.shields.io/badge/.NET-7.0-512BD4)
 ![UI](https://img.shields.io/badge/UI-WPF%20(net45)-9E9E9E)
@@ -81,13 +81,13 @@ Kestrel 反向代理（TLS 中间人 + YARP 转发 + SSH/Git 隧道）
 ## 功能特性
 
 - 域名纯净 IP 解析 + IP 测速，自动选择最快线路
-- 在线 hosts 源解析，作为 DNS 之外的额外候选 IP
+- 在线 hosts 源解析：覆盖的域名仅使用 hosts 源 IP，未覆盖的走 DNS 回退
 - 域名级 TLS 配置：是否发送 SNI、SNI 模板、忽略证书名不匹配
 - Google CDN 资源替换，解决国外站点 js/css 加载失败
 - HTTPS / HTTP / SSH / Git 协议全支持
 - 开机自启（可选）、启动后最小化（可选）
 - 系统托盘常驻：更新 IP / 检测更新 / 设置 / 关闭
-- 托盘「更新IP」手动刷新解析；无法连接任何 IP 时自动触发刷新
+- 托盘「更新IP」仅从在线 hosts 源刷新；无法连接任何 IP 时自动触发完整刷新
 - 实时流量统计与日志查看
 
 ---
@@ -339,6 +339,13 @@ publish.cmd      # 额外产出 linux-x64 / linux-arm64 / osx-x64 / osx-arm64
 ---
 
 ## 更新日志
+
+### v2.3.1 (2026-10-01)
+
+- 托盘「更新IP」改为**仅从在线 hosts 源**获取 IP，不再发起 DNS 查询
+- 在线 hosts 源覆盖的域名只使用 hosts 源 IP，不再混入 DNS 解析结果（hosts 未覆盖的域名仍走 DNS 回退）
+- 手动刷新改为先拉取 hosts 源、再测速，新映射立即生效
+- 重写 README，补充 WinDivert 驱动加载、CA 证书与系统代理等注意事项
 
 ### v2.3.0 (2026-09-18)
 
