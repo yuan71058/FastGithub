@@ -39,8 +39,9 @@ namespace FastGithub.UI
             var exit = new System.Windows.Forms.MenuItem("关闭应用(&C)");
             exit.Click += (s, e) => this.Close();
 
-            var version = this.GetType().Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+            var version = this.GetType().Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion?.Split('+')[0];
             this.Title = $"{FASTGITHUB_UI} v{version}";
+            this.textBlockVersion.Text = $"{FASTGITHUB_UI} v{version}";
             this.notifyIcon = new System.Windows.Forms.NotifyIcon
             {
                 Visible = true,

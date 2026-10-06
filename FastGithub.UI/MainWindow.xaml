@@ -167,8 +167,15 @@
             </TabItem>
         </TabControl>
 
-        <Border Grid.Row="1" Background="#e8f4ff" BorderBrush="#c8e0f0" BorderThickness="0 1 0 0" Visibility="Collapsed" x:Name="borderStatus">
-            <TextBlock x:Name="textBlockStatus" Margin="16 6" FontSize="12" Foreground="#1a5c8a" TextWrapping="Wrap"/>
+        <Border Grid.Row="1" Background="#e8f4ff" BorderBrush="#c8e0f0" BorderThickness="0 1 0 0" x:Name="borderStatus">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="textBlockStatus" Grid.Column="0" Margin="16 6" FontSize="12" Foreground="#1a5c8a" TextWrapping="Wrap"/>
+                <TextBlock x:Name="textBlockVersion" Grid.Column="1" Margin="16 6" FontSize="12" Foreground="#666666" VerticalAlignment="Center"/>
+            </Grid>
         </Border>
     </Grid>
 </Window>
