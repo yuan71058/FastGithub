@@ -71,16 +71,69 @@ namespace FastGithub.UI
         /// <returns></returns>
         private async Task RefreshIpAsync()
         {
+            this.ShowStatus("正在更新IP，请稍候…");
             try
             {
-                using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(10d) };
-                await httpClient.GetAsync("http://localhost:45678/refresh-ip");
-                this.notifyIcon.ShowBalloonTip(3000, FASTGITHUB_UI, "已发送IP更新请求，正在重新解析", System.Windows.Forms.ToolTipIcon.Info);
+                var baseUri = await UiApi.GetBaseUriAsync();
+                using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(60d) };
+                var requestTask = httpClient.GetStringAsync($"{baseUri}/refresh-ip");
+
+                // 后端刷新较慢时先给一次反馈，避免点击后长时间没有任何提示
+                var completedTask = await Task.WhenAny(requestTask, Task.Delay(TimeSpan.FromSeconds(3d)));
+                if (completedTask != requestTask)
+                {
+                    this.ShowStatus("IP更新进行中，后端正在清空缓存并重新解析测速…");
+                    this.notifyIcon.ShowBalloonTip(3000, FASTGITHUB_UI, "IP更新进行中，正在重新解析与测速…", System.Windows.Forms.ToolTipIcon.Info);
+                }
+
+                var json = await requestTask;
+
+                RefreshIpResult? result = null;
+                try
+                {
+                    result = Newtonsoft.Json.JsonConvert.DeserializeObject<RefreshIpResult>(json);
+                }
+                catch (Newtonsoft.Json.JsonException)
+                {
+                }
+
+                var message = "已触发IP更新，但后端未返回刷新结果（后端可能为旧版本）";
+                if (result != null)
+                {
+                    message = $"IP更新完成：{result.DomainCount}个域名、{result.AddressCount}个可用IP";
+                    message += result.HostsUpdated == true
+                        ? $"（在线hosts源{result.HostsDomainCount}个域名）"
+                        : $"（在线hosts源更新失败：{result.HostsError}）";
+                }
+
+                if (UiApi.Detected == false)
+                {
+                    message += "；未探测到新版后端，请确认 fastgithub.exe 已更新并正在运行";
+                }
+
+                this.ShowStatus(message);
+                this.notifyIcon.ShowBalloonTip(5000, FASTGITHUB_UI, message, System.Windows.Forms.ToolTipIcon.Info);
             }
             catch (Exception ex)
             {
-                this.notifyIcon.ShowBalloonTip(3000, FASTGITHUB_UI, $"IP更新失败：{ex.Message}", System.Windows.Forms.ToolTipIcon.Error);
+                var message = $"IP更新失败：{ex.Message}";
+                this.ShowStatus(message);
+                this.notifyIcon.ShowBalloonTip(5000, FASTGITHUB_UI, message, System.Windows.Forms.ToolTipIcon.Error);
             }
+        }
+
+        /// <summary>
+        /// 在主窗口底部显示状态
+        /// </summary>
+        /// <param name="message"></param>
+        private void ShowStatus(string message)
+        {
+            var text = $"{DateTime.Now:HH:mm:ss} {message}";
+            this.Dispatcher.Invoke(new Action(() =>
+            {
+                this.textBlockStatus.Text = text;
+                this.borderStatus.Visibility = Visibility.Visible;
+            }));
         }
 
         /// <summary>

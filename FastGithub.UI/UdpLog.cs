@@ -21,10 +21,23 @@ namespace FastGithub.UI
 
         /// <summary>
         /// 复制到剪贴板
+        /// 剪贴板可能被其它进程占用，此时SetText会抛出COMException，这里重试并忽略最终失败
         /// </summary>
         public void SetToClipboard()
         {
-            Clipboard.SetText($"{this.Timestamp:yyyy-MM-dd HH:mm:ss.fff}\r\n{this.Message}");
+            var text = $"{this.Timestamp:yyyy-MM-dd HH:mm:ss.fff}\r\n{this.Message}";
+            for (var i = 0; i < 3; i++)
+            {
+                try
+                {
+                    Clipboard.SetText(text);
+                    return;
+                }
+                catch (System.Runtime.InteropServices.COMException)
+                {
+                    System.Threading.Thread.Sleep(100);
+                }
+            }
         }
 
     }

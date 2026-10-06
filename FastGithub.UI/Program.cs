@@ -40,6 +40,9 @@ namespace FastGithub.UI
             SetWebBrowserVersion();
 
             var app = new Application();
+            // 兜底未处理异常：托盘应用一旦因异常终止，后端会随父进程退出，导致加速失效
+            app.DispatcherUnhandledException += (s, e) => e.Handled = true;
+            AppDomain.CurrentDomain.UnhandledException += (s, e) => { };
             app.StartupUri = new Uri(MAIN_WINDOWS, UriKind.Relative);
             app.Run();
         }

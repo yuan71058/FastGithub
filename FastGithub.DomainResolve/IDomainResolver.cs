@@ -26,17 +26,17 @@ namespace FastGithub.DomainResolve
         Task TestSpeedAsync(CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// 刷新所有域名的IP（清空缓存并重新解析测速）
+        /// 刷新所有域名的IP（清空所有缓存并重新解析测速）
         /// </summary>
         /// <param name="cancellationToken"></param>
         /// <returns></returns>
-        Task RefreshAsync(CancellationToken cancellationToken = default);
+        Task<RefreshIpResult> RefreshAsync(CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// 刷新所有域名的IP（仅使用在线hosts源，不发起DNS查询）
+        /// 刷新所有域名的IP（优先使用在线hosts源，未覆盖的域名回退DNS查询）
         /// </summary>
         /// <param name="cancellationToken"></param>
         /// <returns></returns>
-        Task RefreshHostsAsync(CancellationToken cancellationToken = default);
+        Task<RefreshIpResult> RefreshHostsAsync(CancellationToken cancellationToken = default);
     }
 }

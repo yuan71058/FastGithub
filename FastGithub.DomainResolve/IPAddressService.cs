@@ -30,17 +30,14 @@ namespace FastGithub.DomainResolve
         private readonly IMemoryCache addressElapsedCache = new MemoryCache(Options.Create(new MemoryCacheOptions()));
 
         private readonly DnsClient dnsClient;
-        private readonly HostsService hostsService;
 
         /// <summary>
         /// IP服务
         /// </summary>
         /// <param name="dnsClient"></param>
-        /// <param name="hostsService"></param>
-        public IPAddressService(DnsClient dnsClient, HostsService hostsService)
+        public IPAddressService(DnsClient dnsClient)
         {
             this.dnsClient = dnsClient;
-            this.hostsService = hostsService;
         }
 
         /// <summary>
@@ -57,27 +54,44 @@ namespace FastGithub.DomainResolve
         /// </summary>
         /// <param name="dnsEndPoint"></param>
         /// <param name="oldAddresses"></param>
-        /// <param name="hostsOnly">是否仅使用在线hosts源提供的IP（不发起DNS查询）</param>
         /// <param name="cancellationToken"></param>
         /// <returns></returns>
-        public async Task<IPAddress[]> GetAddressesAsync(DnsEndPoint dnsEndPoint, IEnumerable<IPAddress> oldAddresses, bool hostsOnly, CancellationToken cancellationToken)
+        public async Task<IPAddress[]> GetAddressesAsync(DnsEndPoint dnsEndPoint, IEnumerable<IPAddress> oldAddresses, CancellationToken cancellationToken)
+        {
+            // 优先使用在线hosts源提供的IP，避免DNS结果被污染
+            var addresses = await this.GetAddressesCoreAsync(dnsEndPoint, oldAddresses, hostsOnly: true, cancellationToken);
+            if (addresses.Length > 0)
+            {
+                return addresses;
+            }
+
+            // hosts源未提供可用IP时，才回退到DNS查询
+            return await this.GetAddressesCoreAsync(dnsEndPoint, oldAddresses, hostsOnly: false, cancellationToken);
+        }
+
+        /// <summary>
+        /// 并行获取可连接的IP
+        /// </summary>
+        /// <param name="dnsEndPoint"></param>
+        /// <param name="oldAddresses"></param>
+        /// <param name="hostsOnly">是否只使用在线hosts源提供的IP</param>
+        /// <param name="cancellationToken"></param>
+        /// <returns></returns>
+        private async Task<IPAddress[]> GetAddressesCoreAsync(DnsEndPoint dnsEndPoint, IEnumerable<IPAddress> oldAddresses, bool hostsOnly, CancellationToken cancellationToken)
         {
             var ipEndPoints = new HashSet<IPEndPoint>();
 
-            // 历史未过期的IP节点（手动刷新、hosts源覆盖的域名均不保留历史DNS结果）
-            if (hostsOnly == false && this.hostsService.IsCovered(dnsEndPoint.Host) == false)
+            // 历史未过期的IP节点
+            foreach (var address in oldAddresses)
             {
-                foreach (var address in oldAddresses)
+                var domainAddress = new DomainAddress(dnsEndPoint.Host, address);
+                if (this.domainAddressCache.TryGetValue(domainAddress, out _))
                 {
-                    var domainAddress = new DomainAddress(dnsEndPoint.Host, address);
-                    if (this.domainAddressCache.TryGetValue(domainAddress, out _))
-                    {
-                        ipEndPoints.Add(new IPEndPoint(address, dnsEndPoint.Port));
-                    }
+                    ipEndPoints.Add(new IPEndPoint(address, dnsEndPoint.Port));
                 }
             }
 
-            // 新解析出的IP节点
+            // 新解析出的IP节点（在线hosts源优先，需要时补充DNS结果）
             await foreach (var address in this.dnsClient.ResolveAsync(dnsEndPoint, fastSort: false, cancellationToken, hostsOnly))
             {
                 ipEndPoints.Add(new IPEndPoint(address, dnsEndPoint.Port));

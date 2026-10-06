@@ -73,7 +73,8 @@ namespace FastGithub.UI
 
         private async Task FlushFlowStatisticsAsync(HttpClient httpClient)
         {
-            var response = await httpClient.GetAsync("http://localhost:45678/flowStatistics");
+            var baseUri = await UiApi.GetBaseUriAsync();
+            var response = await httpClient.GetAsync($"{baseUri}/flowStatistics");
             var json = await response.EnsureSuccessStatusCode().Content.ReadAsStringAsync();
             var flowStatistics = JsonConvert.DeserializeObject<FlowStatistics>(json);
             if (flowStatistics == null)

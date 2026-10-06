@@ -63,18 +63,27 @@ namespace FastGithub.DomainResolve
         }
 
         /// <summary>
+        /// 清空DNS解析缓存，强制后续重新发起DNS查询
+        /// </summary>
+        public void ClearCache()
+        {
+            (this.dnsLookupCache as MemoryCache)?.Compact(1.0);
+            (this.dnsStateCache as MemoryCache)?.Compact(1.0);
+        }
+
+        /// <summary>
         /// 解析域名
         /// </summary>
         /// <param name="endPoint">远程结节</param>
         /// <param name="fastSort">是否使用快速排序</param>
         /// <param name="cancellationToken"></param>
-        /// <param name="hostsOnly">是否仅使用在线hosts源（跳过DNS查询）</param>
+        /// <param name="hostsOnly">是否只使用在线hosts源提供的IP</param>
         /// <returns></returns>
         public async IAsyncEnumerable<IPAddress> ResolveAsync(DnsEndPoint endPoint, bool fastSort, [EnumeratorCancellation] CancellationToken cancellationToken, bool hostsOnly = false)
         {
             var hashSet = new HashSet<IPAddress>();
 
-            // 在线hosts源覆盖的域名仅使用hosts源提供的IP，不混入DNS结果
+            // 在线hosts源覆盖的域名优先使用hosts源提供的IP
             if (this.hostsService.TryGetAddresses(endPoint.Host, out var hostsAddresses) && hostsAddresses.Count > 0)
             {
                 foreach (var address in hostsAddresses)
@@ -84,15 +93,20 @@ namespace FastGithub.DomainResolve
                         yield return address;
                     }
                 }
-                yield break;
-            }
 
-            // 手动刷新仅使用在线hosts源，未覆盖的域名不发起DNS查询
-            if (hostsOnly == true)
+                // hostsOnly表示本次只信任hosts源，不补充DNS结果
+                if (hostsOnly == true)
+                {
+                    yield break;
+                }
+            }
+            else if (hostsOnly == true)
             {
+                // hosts源未覆盖且只要hosts源时无候选，交由调用方决定是否需要DNS回退
                 yield break;
             }
 
+            // hosts源未覆盖、或hosts源提供的IP不可用时，补充DNS查询结果
             await foreach (var dns in this.GetDnsServersAsync(cancellationToken))
             {
                 var addresses = await this.LookupAsync(dns, endPoint, fastSort, cancellationToken);

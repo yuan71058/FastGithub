@@ -15,6 +15,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Net;
 using System.Text.Json;
+using System.Threading;
 
 namespace FastGithub
 {
@@ -23,6 +24,10 @@ namespace FastGithub
     /// </summary>
     static class Startup
     {
+        private const string FASTGITHUB = "FastGithub";
+        private static readonly TimeSpan refreshTimeout = TimeSpan.FromSeconds(45d);
+        private static readonly JsonSerializerOptions jsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+
         /// <summary>
         /// 配置通用主机
         /// </summary>
@@ -134,13 +139,19 @@ namespace FastGithub
                 return context.Response.WriteAsync(json);
             });
 
-            // 触发IP刷新：拉取在线hosts源并解析测速（不发起DNS查询）
+            // UI探测后端内部通信端口
+            app.MapGet("/ping", context => context.Response.WriteAsync(FASTGITHUB));
+
+            // 触发IP刷新：清空所有缓存，优先使用在线hosts源并重新测速
             app.MapGet("/refresh-ip", async context =>
             {
                 var resolver = context.RequestServices.GetRequiredService<IDomainResolver>();
-                await resolver.RefreshHostsAsync(context.RequestAborted);
-                context.Response.ContentType = "text/plain;charset=utf-8";
-                await context.Response.WriteAsync("IP更新已触发");
+                // 不与请求的生命周期绑定，避免UI超时或断开导致刷新半途终止
+                using var timeoutTokenSource = new CancellationTokenSource(refreshTimeout);
+                var result = await resolver.RefreshHostsAsync(timeoutTokenSource.Token);
+
+                context.Response.ContentType = "application/json;charset=utf-8";
+                await context.Response.WriteAsync(JsonSerializer.Serialize(result, jsonOptions));
             });
         }
     }

@@ -143,7 +143,11 @@
         </ResourceDictionary>
     </Window.Resources>
     <Grid Background="#00ffffff">
-        <TabControl Style="{StaticResource TabControlWithUnderLineStyle}" Foreground="Black" Background="Transparent" BorderBrush="Transparent" BorderThickness="0">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <TabControl Grid.Row="0" Style="{StaticResource TabControlWithUnderLineStyle}" Foreground="Black" Background="Transparent" BorderBrush="Transparent" BorderThickness="0">
             <TabItem Style="{StaticResource TabItemExWithUnderLineStyle}" Header="流量" Height="40" Width="60"  Margin="5 0" FontSize="18">
                 <Grid Background="#f7f7f7">
                     <local:FlowChart Margin="16" />
@@ -162,5 +166,9 @@
                 </Grid>
             </TabItem>
         </TabControl>
+
+        <Border Grid.Row="1" Background="#e8f4ff" BorderBrush="#c8e0f0" BorderThickness="0 1 0 0" Visibility="Collapsed" x:Name="borderStatus">
+            <TextBlock x:Name="textBlockStatus" Margin="16 6" FontSize="12" Foreground="#1a5c8a" TextWrapping="Wrap"/>
+        </Border>
     </Grid>
 </Window>

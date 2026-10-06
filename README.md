@@ -1,6 +1,6 @@
 # FastGithub
 
-![Version](https://img.shields.io/badge/version-2.3.1-blue)
+![Version](https://img.shields.io/badge/version-2.3.2-blue)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-informational)
 ![Framework](https://img.shields.io/badge/.NET-7.0-512BD4)
 ![UI](https://img.shields.io/badge/UI-WPF%20(net45)-9E9E9E)
@@ -64,7 +64,7 @@ Kestrel 反向代理（TLS 中间人 + YARP 转发 + SSH/Git 隧道）
 
 **IP 选路**：后台服务每秒对已知 IP 做 TCP 延迟测量，按延迟排序并剔除不可达 IP，结果持久化到 `dnsendpoints.json`。
 
-**IP 来源优先级**：在线 hosts 源（默认 `https://raw.hellogithub.com/hosts`）覆盖的域名**仅使用 hosts 源 IP**；hosts 源未覆盖的域名才走 DNS：本地 `dnscrypt-proxy`（加密 DNS）→ 重试一次 → `FallbackDns`（223.5.5.5 / 119.29.29.29 / 180.76.76.76）。
+**IP 来源优先级**：在线 hosts 源（默认 `https://raw.hellogithub.com/hosts.json`，JSON 数组格式 `[["ip","domain"],...]`）覆盖的域名**仅使用 hosts 源 IP**，全部不可用时才回退 DNS；hosts 源未覆盖的域名走 DNS：本地 `dnscrypt-proxy`（加密 DNS）→ 重试一次 → `FallbackDns`（223.5.5.5 / 223.6.6.6 / 114.114.114.114）。
 
 **平台差异**
 
@@ -147,7 +147,7 @@ docker-compose up -d
 | 80 | Windows | HTTP 反向代理 |
 | 22 | Windows | SSH 反向代理（github.com:22） |
 | 9418 | Windows | Git 协议反向代理 |
-| 45678 | Windows | **UI 内部通信**（`/flowStatistics`、`/refresh-ip`），不是代理端口 |
+| 45678 | Windows | **UI 内部通信**（`/ping`、`/flowStatistics`、`/refresh-ip`），不是代理端口；被占用时向上顺延，UI 会自动探测 |
 | 38457 | Linux / macOS | HTTP 正向代理端口（`HttpProxyPort`），同时作为 UDP 日志默认端口 |
 | 5533 起 | 全平台 | 本地 `dnscrypt-proxy` 加密 DNS（自动选取可用端口） |
 
@@ -170,10 +170,10 @@ docker-compose up -d
 {
   "FastGithub": {
     "HttpProxyPort": 38457,        // 正向代理端口，Linux/macOS 使用
-    "FallbackDns": [               // 备用 DNS，必须支持 TCP
+    "FallbackDns": [               // 备用 DNS，必须支持 TCP（本机到其 TCP 53 需可达，否则查询会失败）
       "223.5.5.5:53",
-      "119.29.29.29:53",
-      "180.76.76.76:53"
+      "223.6.6.6:53",
+      "114.114.114.114:53"
     ],
     "DomainConfigs": {
       "*.github.com": {
@@ -202,7 +202,7 @@ docker-compose up -d
 
 | 菜单项 | 说明 |
 |--------|------|
-| 更新IP(&R) | 请求 `/refresh-ip`，拉取在线 hosts 源并重新测速（不发起 DNS 查询） |
+| 更新IP(&R) | 请求 `/refresh-ip`，清空 IP 与 DNS 解析缓存后重新测速（优先在线 hosts 源，未覆盖的域名回退 DNS），完成后气泡提示刷新的域名与可用 IP 数量 |
 | 检测更新(&U) | 打开 Releases 页面 |
 | 设置(&S) | 开机自启、启动后最小化 |
 | 关闭应用(&C) | 退出（会同时结束后端 `fastgithub.exe`） |
@@ -340,6 +340,19 @@ publish.cmd      # 额外产出 linux-x64 / linux-arm64 / osx-x64 / osx-arm64
 
 ## 更新日志
 
+### v2.3.2 (2026-10-06)
+
+- 修复托盘「更新IP」无效：刷新时一并清空 DNS 解析缓存，不再命中旧结果
+- 修复手动刷新会把在线 hosts 源未覆盖域名的 IP 清空的问题，未覆盖的域名回退 DNS 查询并保留历史 IP
+- 在线 hosts 源改用 `https://raw.hellogithub.com/hosts.json`，支持 JSON 数组 `[["ip","domain"],...]` 解析（仍兼容原 hosts 文本格式）
+- hosts 源提供的 IP 全部不可用时才回退 DNS，避免只依赖 hosts 源导致无 IP 可用
+- 域名测速改为并发（最大并发 8），刷新耗时由数十秒降至约 15~22 秒
+- `/refresh-ip` 不再绑定请求生命周期，UI 断开也不会中断刷新；返回域名与可用 IP 数量的真实结果
+- 新增内部 `/ping` 接口，UI 自动探测实际监听的通信端口（不再硬编码 45678）
+- 主窗口底部新增状态栏，IP 更新结果同时显示，避免托盘气泡被系统通知抑制后看不到反馈
+- 修复日志页右键「复制」时剪贴板异常导致托盘进程崩溃、后端随父进程退出的问题，并增加全局异常兜底
+- 备用 DNS 调整为 TCP 53 实测可达的 `223.5.5.5 / 223.6.6.6 / 114.114.114.114`（原 `119.29.29.29`、`180.76.76.76` 的 TCP 53 不可达）
+
 ### v2.3.1 (2026-10-01)
 
 - 托盘「更新IP」改为**仅从在线 hosts 源**获取 IP，不再发起 DNS 查询
@@ -357,7 +370,7 @@ publish.cmd      # 额外产出 linux-x64 / linux-arm64 / osx-x64 / osx-arm64
 
 - DNS 回退服务器改为国内公共 DNS（223.5.5.5 / 119.29.29.29 / 180.76.76.76）
 - Windows 平台 UI 内部通信端口由 38457 调整为 45678
-- 支持在线 hosts 源解析（`https://raw.hellogithub.com/hosts`）
+- 支持在线 hosts 源解析（`https://raw.hellogithub.com/hosts`，v2.3.2 起改为 `hosts.json`）
 
 ### v2.1.7 (2026-07-17)
 
