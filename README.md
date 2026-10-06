@@ -302,16 +302,72 @@ sudo xattr -d com.apple.quarantine *.*
 
 ## 构建与开发
 
-```bash
+### 环境要求
+
+| 平台 | 需要的工具 | 可构建 |
+|------|-----------|--------|
+| Windows | .NET 7 SDK（8 SDK 亦可，会有 net7.0 不受支持的警告）+ .NET Framework 4.5 目标包（VS 的「.NET 桌面开发」工作负载） | 后端 + UI |
+| Linux | .NET 7 SDK + `zip` | 仅后端 |
+| macOS | .NET 7 SDK + `zip`（系统自带） | 仅后端 |
+
+> `FastGithub.UI` 是 `net45` + WPF 项目，**只能在 Windows 上构建**；Linux / macOS 请直接指定后端项目 `FastGithub/FastGithub.csproj`，不要构建整个 `FastGithub.sln`。
+>
+> `Directory.Build.props` 里 `RuntimeIdentifier` 默认为 `win-x64`，跨平台发布必须显式传 `-r`。
+
+### Windows
+
+```powershell
+# 后端：单文件 + 裁剪
+dotnet publish .\FastGithub\FastGithub.csproj -c Release -r win-x64 --self-contained `
+    -p:PublishSingleFile=true -p:PublishTrimmed=true -o .\publish\fastgithub_win-x64
+
+# UI（Costura.Fody 会把依赖打进 exe）
+dotnet publish .\FastGithub.UI\FastGithub.UI.csproj -c Release -o .\publish\fastgithub_win-x64
+
+# 仅编译（不发布）
 dotnet build FastGithub.sln -c Release
 ```
 
-Windows 一键打包（输出到 `publish/`）：
+### Linux
 
 ```bash
-build.bat        # 后端单文件 + UI 单文件 + appsettings
-publish.cmd      # 额外产出 linux-x64 / linux-arm64 / osx-x64 / osx-arm64
+# x64
+dotnet publish ./FastGithub/FastGithub.csproj -c Release -r linux-x64 --self-contained \
+    -p:PublishSingleFile=true -p:PublishTrimmed=true -o ./publish/fastgithub_linux-x64
+
+# arm64
+dotnet publish ./FastGithub/FastGithub.csproj -c Release -r linux-arm64 --self-contained \
+    -p:PublishSingleFile=true -p:PublishTrimmed=true -o ./publish/fastgithub_linux-arm64
+
+# 赋予执行权限并打包
+chmod 777 ./publish/fastgithub_linux-*/fastgithub ./publish/fastgithub_linux-*/dnscrypt-proxy/dnscrypt-proxy
+cd ./publish && ./pack.sh      # 生成 fastgithub_linux-*.zip
 ```
+
+### macOS
+
+```bash
+# Intel
+dotnet publish ./FastGithub/FastGithub.csproj -c Release -r osx-x64 --self-contained \
+    -p:PublishSingleFile=true -p:PublishTrimmed=true -o ./publish/fastgithub_osx-x64
+
+# Apple Silicon
+dotnet publish ./FastGithub/FastGithub.csproj -c Release -r osx-arm64 --self-contained \
+    -p:PublishSingleFile=true -p:PublishTrimmed=true -o ./publish/fastgithub_osx-arm64
+
+chmod 777 ./publish/fastgithub_osx-*/fastgithub ./publish/fastgithub_osx-*/dnscrypt-proxy/dnscrypt-proxy
+cd ./publish && ./pack.sh      # 生成 fastgithub_osx-*.zip
+```
+
+### 一键脚本
+
+| 脚本 | 平台 | 产出 |
+|------|------|------|
+| `build.bat` | Windows | 清理 bin/obj 后产出 `publish/`：`fastgithub.exe` + `FastGithub.UI.exe` + `appsettings/`（仅 win-x64） |
+| `publish.cmd` | Windows | 额外产出 linux-x64 / linux-arm64 / osx-x64 / osx-arm64 共 5 个平台目录 |
+| `pack.sh` | Linux / macOS | 对 `publish/` 下各平台目录加执行权限并打成 zip |
+
+发布产物统一输出到 `publish/fastgithub_<平台>/`，包含可执行文件、`appsettings.json`、`appsettings/`、`dnscrypt-proxy/`、`README.md`、`LICENSE`。
 
 解决方案结构：
 
