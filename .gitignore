@@ -364,3 +364,5 @@ FodyWeavers.xsd
 
 # CodeBuddy IDE data
 .codebuddy/
+# 本地工作目录（不在版本库中跟踪）
+.workbuddy/

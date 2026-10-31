@@ -22,7 +22,7 @@ namespace FastGithub.Http
     {
         private readonly DomainConfig domainConfig;
         private readonly IDomainResolver domainResolver;
-        private readonly TimeSpan connectTimeout = TimeSpan.FromSeconds(10d);
+        private readonly TimeSpan connectTimeout = TimeSpan.FromSeconds(4d);
         private static int refreshingToken = 0;
 
         /// <summary>
@@ -108,10 +108,12 @@ namespace FastGithub.Http
                 catch (OperationCanceledException)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
+                    this.domainResolver.ReportFailure(ipEndPoint.Address);
                     innerExceptions.Add(new HttpConnectTimeoutException(ipEndPoint.Address));
                 }
                 catch (Exception ex)
                 {
+                    this.domainResolver.ReportFailure(ipEndPoint.Address);
                     innerExceptions.Add(ex);
                 }
             }

@@ -38,5 +38,11 @@ namespace FastGithub.DomainResolve
         /// <param name="cancellationToken"></param>
         /// <returns></returns>
         Task<RefreshIpResult> RefreshHostsAsync(CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// 上报请求阶段连接失败的IP，使其短期不再被优先选中
+        /// </summary>
+        /// <param name="address">失败的IP</param>
+        void ReportFailure(IPAddress address);
     }
 }

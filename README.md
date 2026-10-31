@@ -1,6 +1,6 @@
 # FastGithub
 
-![Version](https://img.shields.io/badge/version-2.3.2-blue)
+![Version](https://img.shields.io/badge/version-2.4.0-blue)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-informational)
 ![Framework](https://img.shields.io/badge/.NET-7.0-512BD4)
 ![UI](https://img.shields.io/badge/UI-WPF%20(net45)-9E9E9E)
@@ -62,9 +62,23 @@ Kestrel 反向代理（TLS 中间人 + YARP 转发 + SSH/Git 隧道）
 上游服务器（github.com 等，最优 IP）
 ```
 
-**IP 选路**：后台服务每秒对已知 IP 做 TCP 延迟测量，按延迟排序并剔除不可达 IP，结果持久化到 `dnsendpoints.json`。
+**IP 选路**：后台服务每秒对已知 IP 做两段探测——**TCP 连接 + TLS 握手**，都通过才进入延迟排序，按延迟升序返回；结果持久化到 `dnsendpoints.json`。
+
+> [!IMPORTANT]
+> 只测 TCP 是不够的。被干扰的 IP 常常能完成 TCP 甚至 TLS 握手，但后续 HTTP 阶段收不到数据；如果按 TCP 延迟排序，这类 IP 反而因为"延迟低"被持续选中，表现为页面时好时坏、部分请求 502。因此探测以 TLS 握手成功作为可用性门槛。
+
+失败恢复分两层：
+
+| 层级 | 机制 |
+|------|------|
+| 测速阶段 | TCP 或 TLS 任一段失败 → 记为不可用，缓存 1 分钟（网络整体不可达时）或 5 分钟 |
+| 请求阶段 | 上游连接失败 → `ReportFailure` 把该 IP 拉黑 90 秒，立即从候选列表剔除，不再参与排序 |
+
+单 IP 连接超时 4 秒，避免逐个试错时把总耗时拖到十几秒；全部 IP 不可用时抛出聚合异常并触发一次 IP 刷新。
 
 **IP 来源优先级**：在线 hosts 源（默认 `https://raw.hellogithub.com/hosts.json`，JSON 数组格式 `[["ip","domain"],...]`）覆盖的域名**仅使用 hosts 源 IP**，全部不可用时才回退 DNS；hosts 源未覆盖的域名走 DNS：本地 `dnscrypt-proxy`（加密 DNS）→ 重试一次 → `FallbackDns`（223.5.5.5 / 210.2.4.8 / 180.76.76.76 / 119.29.29.29 / 8.8.8.8）。
+
+hosts 源与 DNS 都没给出可用 IP 时，`github.com` / `api.github.com` / `gist.github.com` / `codeload.github.com` 还有一层内置候选池兜底（每个域名 2~6 个官方入口 IP），同样要经过两段探测才会被选中。
 
 **平台差异**
 
@@ -81,6 +95,9 @@ Kestrel 反向代理（TLS 中间人 + YARP 转发 + SSH/Git 隧道）
 ## 功能特性
 
 - 域名纯净 IP 解析 + IP 测速，自动选择最快线路
+- 可用性以 **TCP + TLS 握手**双重探测判定，避免把"TCP 能连但 HTTPS 不通"的 IP 选为最快
+- 请求阶段失败的 IP 自动熔断 90 秒，不再反复选中同一个坏 IP
+- GitHub 核心域名（github / api / gist / codeload）内置候选 IP 池兜底
 - 在线 hosts 源解析：覆盖的域名仅使用 hosts 源 IP，未覆盖的走 DNS 回退
 - 域名级 TLS 配置：是否发送 SNI、SNI 模板、忽略证书名不匹配
 - Google CDN 资源替换，解决国外站点 js/css 加载失败
@@ -298,6 +315,17 @@ git config --global http.sslverify false
 sudo xattr -d com.apple.quarantine *.*
 ```
 
+**浏览器出现 `{"error":"Request","message":"找不到任何可成功连接的IP，已自动触发IP更新，请稍后重试 ..."}`**
+
+这是反向代理层返回的原始异常：所有候选 IP 的 TCP 连接都失败了。它不是网络完全不通，通常是当前 IP 恰好全部不可用（GitHub 入口 IP 会随时间和线路波动）。
+
+处理顺序：
+
+1. 等 1~2 分钟再刷新，程序已自动触发 IP 刷新，多数情况下会自动恢复。
+2. 若持续出现，看 `logs/log.txt` 里 `github.com:443->` 后面的实际 IP，再手工验证该 IP 是否可用：`curl -I --resolve github.com:443:<IP> https://github.com/`。
+3. 需要立即恢复时，运行 `tools\Update-FastGithubIp.ps1`（见下节），它会做三段探测后把可用 IP 写入配置，配置热加载、无需重启。
+4. 若脚本报告「无可用 IP」，说明当前网络窗口整体不可达，换时间重试，不要频繁重启程序——密集探测本身可能延长被阻断的时间。
+
 ---
 
 ## 构建与开发
@@ -367,6 +395,31 @@ cd ./publish && ./pack.sh      # 生成 fastgithub_osx-*.zip
 | `publish.cmd` | Windows | 额外产出 linux-x64 / linux-arm64 / osx-x64 / osx-arm64 共 5 个平台目录 |
 | `pack.sh` | Linux / macOS | 对 `publish/` 下各平台目录加执行权限并打成 zip |
 
+### IP 探测运维脚本
+
+`tools/Update-FastGithubIp.ps1` 用于在 GitHub 入口 IP 失效时手动恢复。它对内置候选 IP 逐个做**三段探测**（TCP 连接 → TLS 握手 → HTTP 状态码），挑出延迟最低的可用 IP 写入 `appsettings/appsettings.github.json` 的 `IPAddress` 字段。
+
+```powershell
+# 试运行：只探测并打印结果，不写配置
+powershell -ExecutionPolicy Bypass -File .\tools\Update-FastGithubIp.ps1 -Root E:\2026\fastgithub_win-x64 -DryRun
+
+# 正式写入配置（程序会热加载，无需重启）
+powershell -ExecutionPolicy Bypass -File .\tools\Update-FastGithubIp.ps1 -Root E:\2026\fastgithub_win-x64
+```
+
+| 参数 | 默认值 | 说明 |
+|------|--------|------|
+| `-Root` | 自动从运行中的进程推断 | 程序运行目录（含 `appsettings.json`） |
+| `-MaxCandidates` | 4 | 最多探测几个候选 IP |
+| `-TcpTimeoutMs` | 1500 | TCP 连接超时（毫秒） |
+| `-HttpTimeoutMs` | 3000 | TLS 握手与读取响应超时（毫秒） |
+| `-ThrottleMs` | 1500 | 每个探测之间的间隔（毫秒） |
+| `-DryRun` | 关闭 | 只输出结果，不修改配置 |
+
+> [!WARNING]
+> 不要为了"尽快找到可用 IP"而把 `-MaxCandidates` 调到几十个并缩短间隔。实测对 20 个以上 IP 密集探测后，本机到 GitHub 的连接会被临时阻断，连原本可用的 IP 也会超时。默认的 4 个候选 + 1.5 秒间隔是有意为之。
+
+
 发布产物统一输出到 `publish/fastgithub_<平台>/`，包含可执行文件、`appsettings.json`、`appsettings/`、`dnscrypt-proxy/`、`README.md`、`LICENSE`。
 
 解决方案结构：
@@ -397,6 +450,17 @@ cd ./publish && ./pack.sh      # 生成 fastgithub_osx-*.zip
 ---
 
 ## 更新日志
+
+### v2.4.0 (2026-10-31)
+
+**核心修复**：解决浏览器反复弹出 `{"error":"Request","message":"找不到任何可成功连接的IP ..."}`、GitHub 时快时慢的问题。
+
+- IP 可用性判定由「TCP 连通」升级为「TCP + TLS 握手」两段探测：被干扰的 IP 往往能完成 TCP 甚至 TLS 握手但 HTTP 阶段无数据，原逻辑会把它当成"最快"持续选中，现在握手失败即判不可用
+- 新增请求阶段失败熔断：`IDomainResolver.ReportFailure` 把上游连接失败的 IP 拉黑 90 秒，立即从候选列表剔除，不再"刷新后又选回同一个坏 IP"
+- 单 IP 连接超时由 10 秒降至 4 秒，多个候选全部失败时的总耗时从 20 秒以上降到可接受范围
+- 新增 GitHub 核心域名内置候选 IP 池（`github.com` / `api.github.com` / `gist.github.com` / `codeload.github.com`），hosts 源与 DNS 都给不出可用 IP 时兜底
+- 新增 `tools/Update-FastGithubIp.ps1`：三段探测（TCP / TLS / HTTP 状态码）后把最优 IP 写入 `appsettings.github.json`，配置热加载、无需重启
+- 实测：`github.com` 首页响应从 10.7 秒降至 0.17~0.6 秒，此前单日 22 次连接失败不再复现
 
 ### v2.3.2 (2026-10-06)
 

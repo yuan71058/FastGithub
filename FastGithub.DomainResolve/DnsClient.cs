@@ -45,6 +45,40 @@ namespace FastGithub.DomainResolve
         private record LookupResult(IList<IPAddress> Addresses, TimeSpan TimeToLive);
 
         /// <summary>
+        /// GitHub关键域名的兜底候选IP
+        /// 在线hosts源与DNS结果都可能只剩被阻断的地址，这里补充历史上可用的入口段作为备选。
+        /// 是否真正可用仍由IPAddressService的TCP+TLS探测决定，这里只扩大候选集合。
+        /// </summary>
+        private static readonly Dictionary<string, IPAddress[]> seedAddresses = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["github.com"] = new[]
+            {
+                IPAddress.Parse("20.205.243.166"),
+                IPAddress.Parse("20.26.156.215"),
+                IPAddress.Parse("20.29.134.23"),
+                IPAddress.Parse("20.233.83.145"),
+                IPAddress.Parse("20.27.177.113"),
+                IPAddress.Parse("140.82.113.3"),
+            },
+            ["api.github.com"] = new[]
+            {
+                IPAddress.Parse("20.205.243.168"),
+                IPAddress.Parse("20.205.243.166"),
+                IPAddress.Parse("20.29.134.23"),
+            },
+            ["gist.github.com"] = new[]
+            {
+                IPAddress.Parse("20.205.243.166"),
+                IPAddress.Parse("20.26.156.215"),
+            },
+            ["codeload.github.com"] = new[]
+            {
+                IPAddress.Parse("20.205.243.165"),
+                IPAddress.Parse("20.26.156.215"),
+            },
+        };
+
+        /// <summary>
         /// DNS客户端
         /// </summary>
         /// <param name="dnscryptProxy"></param>
@@ -111,6 +145,18 @@ namespace FastGithub.DomainResolve
             {
                 var addresses = await this.LookupAsync(dns, endPoint, fastSort, cancellationToken);
                 foreach (var address in addresses)
+                {
+                    if (hashSet.Add(address) == true)
+                    {
+                        yield return address;
+                    }
+                }
+            }
+
+            // 兜底候选：仅补充GitHub关键域名，扩大候选集合以应对单个入口被阻断
+            if (seedAddresses.TryGetValue(endPoint.Host, out var seeds) == true)
+            {
+                foreach (var address in seeds)
                 {
                     if (hashSet.Add(address) == true)
                     {

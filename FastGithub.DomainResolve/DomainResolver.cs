@@ -170,6 +170,25 @@ namespace FastGithub.DomainResolve
         }
 
         /// <summary>
+        /// 上报请求阶段连接失败的IP，使其短期不再被优先选中
+        /// </summary>
+        /// <param name="address">失败的IP</param>
+        public void ReportFailure(IPAddress address)
+        {
+            this.addressService.ReportFailure(address);
+
+            foreach (var keyValue in this.dnsEndPointAddress)
+            {
+                if (keyValue.Value.Contains(address))
+                {
+                    this.dnsEndPointAddress[keyValue.Key] = keyValue.Value
+                        .Where(item => item.Equals(address) == false)
+                        .ToArray();
+                }
+            }
+        }
+
+        /// <summary>
         /// 生成刷新结果
         /// </summary>
         /// <param name="domainCount"></param>

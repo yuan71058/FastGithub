@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Net;
+using System.Net.Security;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
@@ -27,7 +28,14 @@ namespace FastGithub.DomainResolve
         private readonly TimeSpan problemElapsedExpiration = TimeSpan.FromMinutes(1d);
         private readonly TimeSpan normalElapsedExpiration = TimeSpan.FromMinutes(5d);
         private readonly TimeSpan connectTimeout = TimeSpan.FromSeconds(5d);
+
+        /// <summary>
+        /// 请求阶段失败的IP，短期不再参与排序
+        /// </summary>
+        private readonly TimeSpan failedExpiration = TimeSpan.FromSeconds(90d);
+
         private readonly IMemoryCache addressElapsedCache = new MemoryCache(Options.Create(new MemoryCacheOptions()));
+        private readonly IMemoryCache failedAddressCache = new MemoryCache(Options.Create(new MemoryCacheOptions()));
 
         private readonly DnsClient dnsClient;
 
@@ -47,6 +55,16 @@ namespace FastGithub.DomainResolve
         {
             (this.domainAddressCache as MemoryCache)?.Compact(1.0);
             (this.addressElapsedCache as MemoryCache)?.Compact(1.0);
+        }
+
+        /// <summary>
+        /// 上报请求阶段连接失败的IP
+        /// 测速通过不代表后续请求一定可用，失败后短期降权，避免持续选中同一个坏IP
+        /// </summary>
+        /// <param name="address"></param>
+        public void ReportFailure(IPAddress address)
+        {
+            this.failedAddressCache.Set(address, default(object), this.failedExpiration);
         }
 
         /// <summary>
@@ -104,7 +122,7 @@ namespace FastGithub.DomainResolve
                 return Array.Empty<IPAddress>();
             }
 
-            var addressElapsedTasks = ipEndPoints.Select(item => this.GetAddressElapsedAsync(item, cancellationToken));
+            var addressElapsedTasks = ipEndPoints.Select(item => this.GetAddressElapsedAsync(item, dnsEndPoint, cancellationToken));
             var addressElapseds = await Task.WhenAll(addressElapsedTasks);
 
             return addressElapseds
@@ -118,11 +136,18 @@ namespace FastGithub.DomainResolve
         /// <summary>
         /// 获取IP节点的时延
         /// </summary> 
-        /// <param name="endPoint"></param>
+        /// <param name="endPoint">IP节点</param>
+        /// <param name="dnsEndPoint">域名节点，用于TLS握手的SNI</param>
         /// <param name="cancellationToken"></param>
         /// <returns></returns>
-        private async Task<AddressElapsed> GetAddressElapsedAsync(IPEndPoint endPoint, CancellationToken cancellationToken)
+        private async Task<AddressElapsed> GetAddressElapsedAsync(IPEndPoint endPoint, DnsEndPoint dnsEndPoint, CancellationToken cancellationToken)
         {
+            // 请求阶段已上报失败的IP，短期内直接视为不可用
+            if (this.failedAddressCache.TryGetValue(endPoint.Address, out _))
+            {
+                return new AddressElapsed(endPoint.Address, TimeSpan.MaxValue);
+            }
+
             if (this.addressElapsedCache.TryGetValue<AddressElapsed>(endPoint, out var addressElapsed))
             {
                 return addressElapsed;
@@ -135,6 +160,13 @@ namespace FastGithub.DomainResolve
                 using var linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutTokenSource.Token);
                 using var socket = new Socket(endPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
                 await socket.ConnectAsync(endPoint, linkedTokenSource.Token);
+
+                // TCP可连接不代表HTTPS可用：被干扰的IP常常能完成TCP握手，随后在TLS阶段被重置
+                if (await CanHandshakeAsync(socket, dnsEndPoint.Host, linkedTokenSource.Token) == false)
+                {
+                    addressElapsed = new AddressElapsed(endPoint.Address, TimeSpan.MaxValue);
+                    return this.addressElapsedCache.Set(endPoint, addressElapsed, this.problemElapsedExpiration);
+                }
 
                 addressElapsed = new AddressElapsed(endPoint.Address, stopWatch.Elapsed);
                 return this.addressElapsedCache.Set(endPoint, addressElapsed, this.normalElapsedExpiration);
@@ -150,6 +182,32 @@ namespace FastGithub.DomainResolve
             finally
             {
                 stopWatch.Stop();
+            }
+        }
+
+        /// <summary>
+        /// 探测TLS握手是否能完成
+        /// </summary>
+        /// <param name="socket">已建立连接的socket</param>
+        /// <param name="host">SNI域名</param>
+        /// <param name="cancellationToken"></param>
+        /// <returns></returns>
+        private static async Task<bool> CanHandshakeAsync(Socket socket, string host, CancellationToken cancellationToken)
+        {
+            using var stream = new NetworkStream(socket, ownsSocket: false);
+            using var sslStream = new SslStream(stream, leaveInnerStreamOpen: true, static (sender, certificate, chain, errors) => true);
+            try
+            {
+                await sslStream.AuthenticateAsClientAsync(new SslClientAuthenticationOptions
+                {
+                    TargetHost = host,
+                    RemoteCertificateValidationCallback = static (sender, certificate, chain, errors) => true
+                }, cancellationToken);
+                return true;
+            }
+            catch (Exception)
+            {
+                return false;
             }
         }
 
