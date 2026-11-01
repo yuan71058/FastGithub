@@ -44,5 +44,12 @@ namespace FastGithub.DomainResolve
         /// </summary>
         /// <param name="address">失败的IP</param>
         void ReportFailure(IPAddress address);
+
+        /// <summary>
+        /// 判断IP是否已被上报失败（短期拉黑）
+        /// </summary>
+        /// <param name="address">IP</param>
+        /// <returns></returns>
+        bool IsFailed(IPAddress address);
     }
 }

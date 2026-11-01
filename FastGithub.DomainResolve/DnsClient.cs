@@ -138,12 +138,24 @@ namespace FastGithub.DomainResolve
                 // hostsOnly表示本次只信任hosts源，不补充DNS结果
                 if (hostsOnly == true)
                 {
+                    // 但必须补充内置候选池：hosts源经常只给1个IP，一旦这个入口被阻断，
+                    // 该域名就只剩一个不可用候选，表现为"更新IP后反而打不开"。
+                    foreach (var address in this.GetSeedAddresses(endPoint.Host, hashSet))
+                    {
+                        yield return address;
+                    }
+
                     yield break;
                 }
             }
             else if (hostsOnly == true)
             {
-                // hosts源未覆盖且只要hosts源时无候选，交由调用方决定是否需要DNS回退
+                // hosts源未覆盖时，用内置候选池兜底；没有候选则交由调用方决定是否回退DNS
+                foreach (var address in this.GetSeedAddresses(endPoint.Host, hashSet))
+                {
+                    yield return address;
+                }
+
                 yield break;
             }
 
@@ -161,14 +173,30 @@ namespace FastGithub.DomainResolve
             }
 
             // 兜底候选：仅补充GitHub关键域名，扩大候选集合以应对单个入口被阻断
-            if (seedAddresses.TryGetValue(endPoint.Host, out var seeds) == true)
+            foreach (var address in this.GetSeedAddresses(endPoint.Host, hashSet))
             {
-                foreach (var address in seeds)
+                yield return address;
+            }
+        }
+
+        /// <summary>
+        /// 获取域名的内置候选IP（已存在的地址会被跳过）
+        /// </summary>
+        /// <param name="host">域名</param>
+        /// <param name="exists">已产出的地址集合</param>
+        /// <returns></returns>
+        private IEnumerable<IPAddress> GetSeedAddresses(string host, HashSet<IPAddress> exists)
+        {
+            if (seedAddresses.TryGetValue(host, out var seeds) == false)
+            {
+                yield break;
+            }
+
+            foreach (var address in seeds)
+            {
+                if (exists.Add(address) == true)
                 {
-                    if (hashSet.Add(address) == true)
-                    {
-                        yield return address;
-                    }
+                    yield return address;
                 }
             }
         }

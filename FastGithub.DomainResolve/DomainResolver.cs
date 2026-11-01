@@ -17,6 +17,7 @@ namespace FastGithub.DomainResolve
     {
         private const int MAX_IP_COUNT = 3;
         private const int MAX_CONCURRENCY = 12;
+        private const int MAX_MERGED_ADDRESS_COUNT = 8;
         private readonly DnsClient dnsClient;
         private readonly PersistenceService persistence;
         private readonly IPAddressService addressService;
@@ -119,7 +120,7 @@ namespace FastGithub.DomainResolve
                     // 用空列表覆盖会让该域名彻底没有可用地址，刷新后反而更糟
                     if (newAddresses.Length > 0)
                     {
-                        this.dnsEndPointAddress[dnsEndPoint] = newAddresses;
+                        this.dnsEndPointAddress[dnsEndPoint] = MergeAddresses(newAddresses, oldAddresses);
                     }
                     else
                     {
@@ -201,6 +202,48 @@ namespace FastGithub.DomainResolve
         }
 
         /// <summary>
+        /// 合并新旧候选IP：新结果优先，旧结果中未重复的追加在后面。
+        /// 刷新时若探测网络抖动导致只选出1个IP，直接用新结果覆盖会让候选池塌缩，
+        /// 一旦这个IP随后不可用，该域名就没有任何备选，表现为"更新IP后反而打不开"。
+        /// </summary>
+        /// <param name="newAddresses">本次探测出的可用IP</param>
+        /// <param name="oldAddresses">刷新前的候选IP</param>
+        /// <returns></returns>
+        private static IPAddress[] MergeAddresses(IPAddress[] newAddresses, IReadOnlyCollection<IPAddress> oldAddresses)
+        {
+            if (oldAddresses.Count == 0)
+            {
+                return newAddresses;
+            }
+
+            var merged = new List<IPAddress>(newAddresses.Length + oldAddresses.Count);
+            var exists = new HashSet<IPAddress>();
+
+            foreach (var address in newAddresses)
+            {
+                if (exists.Add(address) == true)
+                {
+                    merged.Add(address);
+                }
+            }
+
+            foreach (var address in oldAddresses)
+            {
+                if (merged.Count >= MAX_MERGED_ADDRESS_COUNT)
+                {
+                    break;
+                }
+
+                if (exists.Add(address) == true)
+                {
+                    merged.Add(address);
+                }
+            }
+
+            return merged.ToArray();
+        }
+
+        /// <summary>
         /// 清空IP缓存与DNS解析缓存，强制后续重新解析与测速
         /// </summary>
         private void ClearCache()
@@ -229,6 +272,16 @@ namespace FastGithub.DomainResolve
         }
 
         /// <summary>
+        /// 判断IP是否已被上报失败（短期拉黑）
+        /// </summary>
+        /// <param name="address">IP</param>
+        /// <returns></returns>
+        public bool IsFailed(IPAddress address)
+        {
+            return this.addressService.IsFailed(address);
+        }
+
+        /// <summary>
         /// 生成刷新结果
         /// </summary>
         /// <param name="domainCount"></param>
@@ -236,8 +289,7 @@ namespace FastGithub.DomainResolve
         /// <param name="hosts"></param>
         /// <param name="timedOut">是否因超时提前结束</param>
         /// <returns></returns>
-        private RefreshIpResult CreateResult(int domainCount, int addressCount, HostsRefreshResult hosts, bool timedOut = false)
-        {
+        private RefreshIpResult CreateResult(int domainCount, int addressCount, HostsRefreshResult hosts, bool timedOut = false)        {
             if (timedOut == true)
             {
                 this.logger.LogWarning($"IP刷新超时结束：{domainCount}个域名、{addressCount}个可用IP，其余域名保留原IP");

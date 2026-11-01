@@ -23,6 +23,13 @@ namespace FastGithub.Http
         private readonly DomainConfig domainConfig;
         private readonly IDomainResolver domainResolver;
         private readonly TimeSpan connectTimeout = TimeSpan.FromSeconds(4d);
+
+        /// <summary>
+        /// 单个请求尝试所有候选IP的总预算。
+        /// 候选池可能有好几个入口，若逐个等待4秒，全不可用时会拖到十几秒；
+        /// 有了总预算，候选再多也能在有限时间内快速失败并触发刷新。
+        /// </summary>
+        private readonly TimeSpan connectTotalTimeout = TimeSpan.FromSeconds(7d);
         private static int refreshingToken = 0;
 
         /// <summary>
@@ -97,12 +104,20 @@ namespace FastGithub.Http
             var innerExceptions = new List<Exception>();
             var ipEndPoints = this.GetIPEndPointsAsync(context.DnsEndPoint, cancellationToken);
 
+            using var totalTokenSource = new CancellationTokenSource(this.connectTotalTimeout);
+
             await foreach (var ipEndPoint in ipEndPoints)
             {
+                if (totalTokenSource.IsCancellationRequested == true)
+                {
+                    innerExceptions.Add(new HttpConnectTimeoutException(ipEndPoint.Address));
+                    break;
+                }
+
                 try
                 {
                     using var timeoutTokenSource = new CancellationTokenSource(this.connectTimeout);
-                    using var linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(timeoutTokenSource.Token, cancellationToken);
+                    using var linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(timeoutTokenSource.Token, cancellationToken, totalTokenSource.Token);
                     return await this.ConnectAsync(context, ipEndPoint, linkedTokenSource.Token);
                 }
                 catch (OperationCanceledException)

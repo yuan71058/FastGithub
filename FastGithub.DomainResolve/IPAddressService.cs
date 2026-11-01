@@ -68,6 +68,16 @@ namespace FastGithub.DomainResolve
         }
 
         /// <summary>
+        /// 判断IP是否已被上报失败（短期拉黑）
+        /// </summary>
+        /// <param name="address"></param>
+        /// <returns></returns>
+        public bool IsFailed(IPAddress address)
+        {
+            return this.failedAddressCache.TryGetValue(address, out _);
+        }
+
+        /// <summary>
         /// 并行获取可连接的IP
         /// </summary>
         /// <param name="dnsEndPoint"></param>

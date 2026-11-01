@@ -1,6 +1,6 @@
 # FastGithub
 
-![Version](https://img.shields.io/badge/version-2.4.1-blue)
+![Version](https://img.shields.io/badge/version-2.4.2-blue)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-informational)
 ![Framework](https://img.shields.io/badge/.NET-7.0-512BD4)
 ![UI](https://img.shields.io/badge/UI-WPF%20(net45)-9E9E9E)
@@ -79,7 +79,7 @@ Kestrel 反向代理（TLS 中间人 + YARP 转发 + SSH/Git 隧道）
 
 手动刷新有 45 秒预算：预算用完立即返回已完成的结果（`timedOut: true`），剩余域名在后台继续完成，已测出的 IP 立即生效；探测结果为空时保留该域名原有 IP，不会因为一次刷新把可用地址清空。
 
-**IP 来源优先级**：在线 hosts 源（默认 `https://raw.hellogithub.com/hosts.json`，JSON 数组格式 `[["ip","domain"],...]`）覆盖的域名**仅使用 hosts 源 IP**，全部不可用时才回退 DNS；hosts 源未覆盖的域名走 DNS：本地 `dnscrypt-proxy`（加密 DNS）→ 重试一次 → `FallbackDns`（223.5.5.5 / 210.2.4.8 / 180.76.76.76 / 119.29.29.29 / 8.8.8.8）。
+**IP 来源优先级**：在线 hosts 源（默认 `https://raw.hellogithub.com/hosts.json`，JSON 数组格式 `[["ip","domain"],...]`）覆盖的域名**优先使用 hosts 源 IP**，并追加内置候选池（hosts 源经常只给一个 IP，单点一旦被阻断就没有备选）；全部不可用时才回退 DNS；hosts 源未覆盖的域名走 DNS：本地 `dnscrypt-proxy`（加密 DNS）→ 重试一次 → `FallbackDns`（223.5.5.5 / 210.2.4.8 / 180.76.76.76 / 119.29.29.29 / 8.8.8.8）。
 
 hosts 源与 DNS 都没给出可用 IP 时，`github.com` / `api.github.com` / `gist.github.com` / `codeload.github.com` 还有一层内置候选池兜底（每个域名 2~6 个官方入口 IP），同样要经过两段探测才会被选中。
 
@@ -465,6 +465,18 @@ powershell -ExecutionPolicy Bypass -File .\tools\Update-FastGithubIp.ps1 -Root E
 ---
 
 ## 更新日志
+
+### v2.4.2 (2026-11-01)
+
+**修复**：点「更新IP」后反而打不开 GitHub（502，提示 `找不到任何可成功连接的IP`）。
+
+- 根因一：在线 hosts 源经常只给 `github.com` **一个** IP，而 hosts 分支拿到后立即 `yield break`，**内置候选池被跳过**，候选池因此塌缩成单点。这一个入口一旦被阻断，全部请求必然失败
+- 根因二：刷新用新结果**直接覆盖**旧候选。探测抖动时只选出 1 个可用 IP，候选池就从多个缩成 1 个，刷新反而比不刷新更差
+- 根因三：`ReportFailure` 会把失败 IP 从候选列表**删除**，单点候选被删后列表变空，`ResolveAsync` 又从 hosts 源取回同一个坏 IP，每个请求重复白等 4 秒
+- 修复：hosts 分支也合并内置候选池，hosts 源只给 1 个 IP 时仍有多个备选
+- 修复：刷新改为**合并**新旧候选（新结果优先，上限 8 个），候选池只增不减
+- 修复：全部候选共用一个 7 秒连接预算，候选变多也不会把失败耗时拖成十几秒
+- 实测：连续两次刷新（45 秒 / 23.5 秒）后访问 `github.com` 均 200，热请求 0.14 秒；`api` / `codeload` / `raw` 子域全部正常
 
 ### v2.4.1 (2026-11-01)
 
