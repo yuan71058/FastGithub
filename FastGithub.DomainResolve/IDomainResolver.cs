@@ -46,6 +46,13 @@ namespace FastGithub.DomainResolve
         void ReportFailure(IPAddress address);
 
         /// <summary>
+        /// 上报请求阶段连接成功的IP，使其在后续同名域名的请求中优先被选中
+        /// </summary>
+        /// <param name="endPoint">域名节点</param>
+        /// <param name="address">成功的IP</param>
+        void ReportSuccess(DnsEndPoint endPoint, IPAddress address);
+
+        /// <summary>
         /// 判断IP是否已被上报失败（短期拉黑）
         /// </summary>
         /// <param name="address">IP</param>

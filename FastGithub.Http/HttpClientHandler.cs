@@ -22,14 +22,19 @@ namespace FastGithub.Http
     {
         private readonly DomainConfig domainConfig;
         private readonly IDomainResolver domainResolver;
-        private readonly TimeSpan connectTimeout = TimeSpan.FromSeconds(4d);
 
         /// <summary>
-        /// 单个请求尝试所有候选IP的总预算。
-        /// 候选池可能有好几个入口，若逐个等待4秒，全不可用时会拖到十几秒；
-        /// 有了总预算，候选再多也能在有限时间内快速失败并触发刷新。
+        /// 单个IP的连接超时。可用入口建连通常在1秒内，2秒足以判定不可用，
+        /// 过长会让页面里的并发请求逐个白等，表现为整体转圈超时。
         /// </summary>
-        private readonly TimeSpan connectTotalTimeout = TimeSpan.FromSeconds(7d);
+        private readonly TimeSpan connectTimeout = TimeSpan.FromSeconds(2d);
+
+        /// <summary>
+        /// 一个请求尝试所有候选IP的总预算。
+        /// 候选池可能有多个入口，若逐个等待超时，全不可用时会拖到十几秒；
+        /// 有了总预算，候选再多也能在有限时间内失败并触发刷新。
+        /// </summary>
+        private readonly TimeSpan connectTotalTimeout = TimeSpan.FromSeconds(4d);
         private static int refreshingToken = 0;
 
         /// <summary>
@@ -118,7 +123,12 @@ namespace FastGithub.Http
                 {
                     using var timeoutTokenSource = new CancellationTokenSource(this.connectTimeout);
                     using var linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(timeoutTokenSource.Token, cancellationToken, totalTokenSource.Token);
-                    return await this.ConnectAsync(context, ipEndPoint, linkedTokenSource.Token);
+
+                    var stream = await this.ConnectAsync(context, ipEndPoint, linkedTokenSource.Token);
+
+                    // 记住这个可用的IP，后续同名域名的请求直接命中它，不再逐个试错
+                    this.domainResolver.ReportSuccess(context.DnsEndPoint, ipEndPoint.Address);
+                    return stream;
                 }
                 catch (OperationCanceledException)
                 {

@@ -282,6 +282,45 @@ namespace FastGithub.DomainResolve
         }
 
         /// <summary>
+        /// 上报请求阶段连接成功的IP，把它提到该域名候选列表首位。
+        /// 浏览器打开一个页面会并发几十个请求，逐个试错时只要落到坏IP上就要白等一次超时，
+        /// 整体表现为"一直转圈最后超时"。记住最近成功的IP后，后续请求直接命中它，不再重复试错。
+        /// </summary>
+        /// <param name="endPoint">域名节点</param>
+        /// <param name="address">成功的IP</param>
+        public void ReportSuccess(DnsEndPoint endPoint, IPAddress address)
+        {
+            if (this.dnsEndPointAddress.TryGetValue(endPoint, out var addresses) == false)
+            {
+                return;
+            }
+
+            if (addresses.Length <= 1 || addresses[0].Equals(address) == true)
+            {
+                return;
+            }
+
+            if (addresses.Contains(address) == false)
+            {
+                return;
+            }
+
+            var reordered = new IPAddress[addresses.Length];
+            reordered[0] = address;
+
+            var index = 1;
+            foreach (var item in addresses)
+            {
+                if (item.Equals(address) == false)
+                {
+                    reordered[index++] = item;
+                }
+            }
+
+            this.dnsEndPointAddress[endPoint] = reordered;
+        }
+
+        /// <summary>
         /// 生成刷新结果
         /// </summary>
         /// <param name="domainCount"></param>

@@ -1,6 +1,6 @@
 # FastGithub
 
-![Version](https://img.shields.io/badge/version-2.4.3-blue)
+![Version](https://img.shields.io/badge/version-2.4.4-blue)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-informational)
 ![Framework](https://img.shields.io/badge/.NET-7.0-512BD4)
 ![UI](https://img.shields.io/badge/UI-WPF%20(net45)-9E9E9E)
@@ -465,6 +465,17 @@ powershell -ExecutionPolicy Bypass -File .\tools\Update-FastGithubIp.ps1 -Root E
 ---
 
 ## 更新日志
+
+### v2.4.4 (2026-11-01)
+
+**修复**：GitHub 页面一直转圈最后超时、时好时坏。
+
+- 根因：浏览器打开一个页面会并发几十个请求，而每个新连接都要**从头逐个试候选 IP**。候选池里混着好 IP 和坏 IP 时，落到坏 IP 上的那部分请求要白等一次超时，页面就整体卡住
+- 修复：新增 **成功 IP 记忆**（`ReportSuccess`）。连接成功即把该 IP 提到该域名的候选首位，后续请求直接命中，不再重复试错
+- 单 IP 连接超时 4 秒 → **2 秒**（可用入口建连通常在 1 秒内，2 秒足以判定不可用）
+- 全部候选的连接总预算 7 秒 → **4 秒**，失败更快返回并触发刷新
+- 测速探测超时 5 秒 → 2 秒，刷新整体更快
+- 实测：连续 12 个不同页面请求均 0.36~1.56 秒；并发 20 路全部 200、平均 0.60 秒；「更新IP」后立即并发 10 路全部 200、平均 0.93 秒
 
 ### v2.4.3 (2026-11-01)
 

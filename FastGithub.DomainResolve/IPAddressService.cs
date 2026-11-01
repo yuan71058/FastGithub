@@ -27,7 +27,7 @@ namespace FastGithub.DomainResolve
         private record AddressElapsed(IPAddress Address, TimeSpan Elapsed);
         private readonly TimeSpan problemElapsedExpiration = TimeSpan.FromMinutes(1d);
         private readonly TimeSpan normalElapsedExpiration = TimeSpan.FromMinutes(5d);
-        private readonly TimeSpan connectTimeout = TimeSpan.FromSeconds(5d);
+        private readonly TimeSpan connectTimeout = TimeSpan.FromSeconds(2d);
 
         /// <summary>
         /// 请求阶段失败的IP，短期不再参与排序
