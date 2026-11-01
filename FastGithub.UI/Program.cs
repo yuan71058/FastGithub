@@ -41,10 +41,45 @@ namespace FastGithub.UI
 
             var app = new Application();
             // 兜底未处理异常：托盘应用一旦因异常终止，后端会随父进程退出，导致加速失效
-            app.DispatcherUnhandledException += (s, e) => e.Handled = true;
-            AppDomain.CurrentDomain.UnhandledException += (s, e) => { };
+            // 但"吞掉"会让界面打不开又没有痕迹，所以同时写一份日志到 logs\ui-error.log
+            app.DispatcherUnhandledException += (s, e) =>
+            {
+                LogError("DispatcherUnhandledException", e.Exception);
+                e.Handled = true;
+            };
+            AppDomain.CurrentDomain.UnhandledException += (s, e) => LogError("UnhandledException", e.ExceptionObject as Exception);
             app.StartupUri = new Uri(MAIN_WINDOWS, UriKind.Relative);
-            app.Run();
+
+            try
+            {
+                app.Run();
+            }
+            catch (Exception ex)
+            {
+                LogError("Application.Run", ex);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// 把未处理异常写入 logs\ui-error.log
+        /// 界面进程没有控制台，异常被吞掉后只剩"双击没反应"，没有日志就无法定位
+        /// </summary>
+        /// <param name="source"></param>
+        /// <param name="exception"></param>
+        private static void LogError(string source, Exception? exception)
+        {
+            try
+            {
+                var directory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
+                Directory.CreateDirectory(directory);
+                var file = Path.Combine(directory, "ui-error.log");
+                var content = $"[{DateTime.Now:O}] {source}{Environment.NewLine}{exception}{Environment.NewLine}{new string('-', 80)}{Environment.NewLine}";
+                File.AppendAllText(file, content);
+            }
+            catch (Exception)
+            {
+            }
         }
 
         /// <summary>

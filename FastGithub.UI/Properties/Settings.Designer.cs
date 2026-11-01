@@ -46,5 +46,50 @@ namespace FastGithub.UI.Properties {
                 this["StartMinimized"] = value;
             }
         }
+        
+        /// <summary>
+        /// 启动后是否自动更新一次IP
+        /// </summary>
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool AutoRefreshOnStart {
+            get {
+                return ((bool)(this["AutoRefreshOnStart"]));
+            }
+            set {
+                this["AutoRefreshOnStart"] = value;
+            }
+        }
+        
+        /// <summary>
+        /// 自动更新IP的间隔小时数，0表示不自动更新
+        /// </summary>
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("0")]
+        public int AutoRefreshHours {
+            get {
+                return ((int)(this["AutoRefreshHours"]));
+            }
+            set {
+                this["AutoRefreshHours"] = value;
+            }
+        }
+        
+        /// <summary>
+        /// 是否在托盘显示气泡提醒
+        /// </summary>
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool ShowBalloon {
+            get {
+                return ((bool)(this["ShowBalloon"]));
+            }
+            set {
+                this["ShowBalloon"] = value;
+            }
+        }
     }
 }

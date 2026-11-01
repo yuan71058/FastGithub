@@ -2,26 +2,19 @@ using System.Windows;
 
 namespace FastGithub.UI
 {
+    /// <summary>
+    /// 托盘右键打开的设置窗口
+    /// 内容与主窗口的"设置"页是同一个控件，保证两处始终一致
+    /// </summary>
     public partial class SettingsWindow : Window
     {
         public SettingsWindow()
         {
             InitializeComponent();
-            AutoStartCheckBox.IsChecked = Properties.Settings.Default.AutoStart;
-            StartMinimizedCheckBox.IsChecked = Properties.Settings.Default.StartMinimized;
         }
 
-        private void OkButton_Click(object sender, RoutedEventArgs e)
+        private void CloseButton_Click(object sender, RoutedEventArgs e)
         {
-            var autoStart = AutoStartCheckBox.IsChecked ?? false;
-            var startMinimized = StartMinimizedCheckBox.IsChecked ?? false;
-            
-            Properties.Settings.Default.AutoStart = autoStart;
-            Properties.Settings.Default.StartMinimized = startMinimized;
-            Properties.Settings.Default.Save();
-            
-            Program.SetAutoStart(autoStart);
-            
             this.Close();
         }
     }

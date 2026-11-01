@@ -3,86 +3,399 @@
 <html lang="zh-CN">
 <head>
     <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0;" />
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css" crossorigin="anonymous">
-    <title>证书验证</title>
+    <title>使用说明与常见问题</title>
     <style type="text/css">
+        * {
+            box-sizing: border-box;
+        }
+
         body {
+            margin: 0;
+            padding: 20px 24px 40px 24px;
             overflow-x: hidden;
             background-color: #f7f7f7;
-            padding: 0px 36px;
+            color: #333333;
+            font-family: "Microsoft YaHei", "微软雅黑", "Segoe UI", Arial, sans-serif;
+            font-size: 13px;
+            line-height: 1.75;
         }
 
-        blockquote {
-            border-left: 5px solid #c5c5c5;
-            background-color: #f1f1f1;
+        h1 {
+            margin: 0 0 6px 0;
+            font-size: 20px;
+            color: #1a5c8a;
         }
 
-        .badge {
-            background-color: #999;
+        h2 {
+            margin: 26px 0 10px 0;
+            padding-bottom: 6px;
+            font-size: 16px;
+            color: #1a5c8a;
+            border-bottom: 1px solid #e2e2e2;
+        }
+
+        h3 {
+            margin: 18px 0 6px 0;
+            font-size: 14px;
+            color: #22506f;
+        }
+
+        p {
+            margin: 6px 0;
+        }
+
+        ul, ol {
+            margin: 6px 0;
+            padding-left: 22px;
+        }
+
+        li {
+            margin: 3px 0;
+        }
+
+        .lead {
+            margin: 0 0 4px 0;
+            color: #777777;
+            font-size: 12px;
+        }
+
+        .card {
+            background: #ffffff;
+            border: 1px solid #e2e2e2;
+            border-radius: 4px;
+            padding: 14px 16px;
+            margin: 10px 0 14px 0;
+        }
+
+        .tip {
+            background: #eef7ff;
+            border-left: 4px solid #37aefe;
+            padding: 10px 14px;
+            margin: 12px 0;
+        }
+
+        .warn {
+            background: #fff6ec;
+            border-left: 4px solid #f0a020;
+            padding: 10px 14px;
+            margin: 12px 0;
+        }
+
+        .bad {
+            background: #fdf0ef;
+            border-left: 4px solid #d9534f;
+            padding: 10px 14px;
+            margin: 12px 0;
+        }
+
+        .symptom {
+            margin: 4px 0 10px 0;
+            padding: 8px 12px;
+            background: #f1f1f1;
+            border-left: 4px solid #c5c5c5;
+            color: #555555;
+            font-size: 12px;
         }
 
         code {
+            display: inline-block;
+            padding: 1px 6px;
+            background: #eef1f4;
+            border: 1px solid #dde3e8;
+            border-radius: 3px;
+            color: #b5342c;
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 12px;
             cursor: pointer;
+        }
+
+        code:hover {
+            background: #dfe9f2;
+            border-color: #37aefe;
+        }
+
+        .step {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            margin-right: 6px;
+            background: #999999;
+            border-radius: 9px;
+            color: #ffffff;
+            font-size: 11px;
+            line-height: 18px;
+            text-align: center;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 8px 0;
+            font-size: 12px;
+        }
+
+        th, td {
+            padding: 6px 8px;
+            border: 1px solid #e2e2e2;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        th {
+            background: #f2f6fa;
+            color: #22506f;
+            font-weight: normal;
+        }
+
+        .kbd {
+            color: #1a5c8a;
+            font-weight: bold;
+        }
+
+        .toc a {
+            display: inline-block;
+            margin-right: 14px;
+            color: #1a5c8a;
+            text-decoration: none;
+            border-bottom: 1px dashed #b8d4ea;
+        }
+
+        .toc a:hover {
+            color: #37aefe;
+            border-bottom-color: #37aefe;
+        }
+
+        hr {
+            margin: 22px 0;
+            border: 0;
+            border-top: 1px solid #e2e2e2;
+        }
+
+        .footer {
+            margin-top: 26px;
+            color: #9a9a9a;
+            font-size: 11.5px;
+            text-align: center;
         }
     </style>
 </head>
 
-<body onContextMenu="return false;">
-    <div>
-        <h3>Firefox</h3>
-        <blockquote>
-            <h4>建立安全连接失败</h4>
-            <p><small>连接到 github.com 时发生错误。对等端的证书有一个无效的签名。</small> </p>
-            <p><small> 错误代码：SEC_ERROR_BAD_SIGNATURE</small> </p>
-        </blockquote>
+<body oncontextmenu="return false;">
+    <h1>使用说明与常见问题</h1>
+    <p class="lead">按 F5 可以重新加载本页；点击任意灰色代码块可直接复制。</p>
 
-        <h4>解决办法</h4>
-        <p>
-            <span class="badge">1</span>
-            <span>地址栏输入：</span><code>about:config</code>
-        </p>
-        <p>
-            <span class="badge">2</span>
-            <span>输入首选项名称：</span><code>security.enterprise_roots.enabled</code>
-        </p>
-        <p>
-            <span class="badge">3</span>
-            <span>修改值为：</span><code>true</code>
-        </p>
+    <div class="card toc">
+        <a href="#check">① 三步自检</a>
+        <a href="#faq">② 常见问题</a>
+        <a href="#scope">③ 加速范围</a>
+        <a href="#how">④ 工作原理</a>
+        <a href="#safe">⑤ 安全与隐私</a>
+        <a href="#restore">⑥ 还原与卸载</a>
+    </div>
+
+    <h2 id="check">① 先做三步自检</h2>
+    <p>遇到"打不开"时，先按顺序做完这三步，多数情况能直接定位原因。</p>
+
+    <h3>第 1 步：确认加速是否真的在生效</h3>
+    <p>打开命令提示符，输入下面的命令：</p>
+    <p><code>nslookup github.com</code></p>
+    <table>
+        <tr>
+            <th style="width: 42%;">返回结果</th>
+            <th>说明</th>
+        </tr>
+        <tr>
+            <td>Address: <span class="kbd">127.0.0.1</span></td>
+            <td>正常。DNS 已被本程序接管，加速正在工作。</td>
+        </tr>
+        <tr>
+            <td>Address: 20.205.243.166 之类的公网地址</td>
+            <td>未生效。程序没有以管理员身份加载驱动，请见下方「双击没有反应」。</td>
+        </tr>
+    </table>
+
+    <h3>第 2 步：确认后端进程还活着</h3>
+    <p>打开任务管理器，切到「详细信息」，应当能看到两个进程：</p>
+    <ul>
+        <li><span class="kbd">FastGithub.UI.exe</span> —— 托盘界面</li>
+        <li><span class="kbd">fastgithub.exe</span> —— 真正做加速的后端</li>
+    </ul>
+    <p>界面在、后端不在，说明后端启动失败或被安全软件拦截，此时所有网站都不会被加速。</p>
+
+    <h3>第 3 步：确认浏览器不是旧连接</h3>
+    <p>浏览器会缓存 DNS 结果和 TLS 连接。程序刚启动或刚更新过 IP 时，旧连接仍指向失效的地址，表现为"能开但一直转圈"。请<b>彻底退出浏览器再重新打开</b>（只关标签页无效，需要关闭全部窗口）。</p>
+
+    <div class="tip">
+        <b>判断是不是本程序引起的问题：</b>在托盘图标上右键 →「关闭应用」，然后重新执行第 1 步。
+        此时 <code>nslookup github.com</code> 会返回真实公网 IP。如果这时 GitHub 能正常打开，说明问题出在加速链路（继续往下看）；
+        如果这时照样打不开，问题在本机网络或运营商，与本程序无关。
+    </div>
+
+    <h2 id="faq">② 常见问题</h2>
+
+    <h3>1. 浏览器提示"您的连接不是私密连接"</h3>
+    <div class="symptom">
+        NET::ERR_CERT_AUTHORITY_INVALID　/　此网站出具的安全证书不是由受信任的证书颁发机构颁发的
+    </div>
+    <p>原因是本程序的根证书没有被系统信任。程序会在启动时自动安装，但需要管理员权限，安装失败的常见情形：</p>
+    <ol>
+        <li>以普通权限启动（没有出现 UAC 提示）→ 右键程序 →「以管理员身份运行」一次。</li>
+        <li>用 360、火绒、腾讯电脑管家等拦截了证书安装 → 临时关闭拦截后重启程序。</li>
+        <li>证书已安装但浏览器缓存了旧连接 → 彻底退出浏览器后重开。</li>
+    </ol>
+    <p>手动确认证书是否已安装：按 <span class="kbd">Win + R</span>，输入 <code>certlm.msc</code>，在「受信任的根证书颁发机构 → 证书」中查找 <span class="kbd">FastGithub</span>。</p>
+
+    <h3>2. Firefox 提示 SEC_ERROR_BAD_SIGNATURE</h3>
+    <div class="symptom">
+        连接到 github.com 时发生错误。对等端的证书有一个无效的签名。
+    </div>
+    <p>Firefox 使用独立的证书库，默认不读取 Windows 系统证书，需要打开企业根证书支持：</p>
+    <p><span class="step">1</span>地址栏输入 <code>about:config</code> 并回车</p>
+    <p><span class="step">2</span>搜索 <code>security.enterprise_roots.enabled</code></p>
+    <p><span class="step">3</span>把它改为 <code>true</code>，然后重启 Firefox</p>
+
+    <h3>3. git clone / pull / push 报证书错误</h3>
+    <div class="symptom">
+        fatal: unable to access 'https://github.com/xxx.git/'<br />
+        SSL certificate problem: unable to get local issuer certificate
+    </div>
+    <p>git 在同一个终端里会复用已经建立的连接。改完设置后必须<b>关掉当前的 cmd / PowerShell / Git Bash 窗口重新打开</b>，否则用的还是旧连接。</p>
+    <p>如果重开仍然报错，说明 git 自带的证书链没有更新到系统根证书。临时绕过（仅建议临时使用，会降低安全性）：</p>
+    <p><code>git config --global http.sslverify false</code></p>
+    <div class="warn">
+        关闭 sslverify 后 git 不再校验证书，理论上可被中间人窃听。确认验证通过后建议改回
+        <code>git config --global http.sslverify true</code>。
+    </div>
+
+    <h3>4. 打不开 GitHub，页面一直转圈最后超时</h3>
+    <div class="symptom">
+        页面空白转圈，最后显示「无法访问此网站」ERR_CONNECTION_TIMED_OUT
+    </div>
+    <p>这是候选 IP 失效的典型表现。GitHub 各地入口的可用性随时在变，程序会记住历史上可用的 IP，但失效后需要重新测速。按顺序尝试：</p>
+    <ol>
+        <li>托盘图标右键 →「更新IP(&R)」，等提示"IP更新完成"。</li>
+        <li>关掉浏览器全部窗口再重新打开（清连接缓存）。</li>
+        <li>仍然不行，就在「设置」页查看「加速服务状态」，确认后端是"运行中"。</li>
+    </ol>
+    <p>更新 IP 期间（约 10~30 秒）网络会短暂变慢，这是正在并发测速的正常现象，结束后恢复。</p>
+
+    <h3>5. 提示"找不到任何可成功连接的IP"</h3>
+    <div class="symptom">
+        找不到任何可成功连接的IP，已自动触发IP更新，请稍后重试 (github.com:443)
+    </div>
+    <p>含义是：程序把这条域名的所有候选 IP 都试过了，没有一个能在超时内完成连接。此时它已经在后台自动触发一次 IP 更新，通常<b>等十几秒后刷新页面</b>就会恢复。</p>
+    <p>如果反复出现，说明当前网络的出口被整体阻断（例如公司内网限制了 443 出站，或运营商在特定时段干扰）。可以尝试切换网络（手机热点）对照确认。</p>
+
+    <h3>6. 页面能打开，但头像、样式、图标加载不出来</h3>
+    <p>GitHub 的页面由多个域名拼成：主页面来自 <span class="kbd">github.com</span>，样式与脚本来自 <span class="kbd">github.githubassets.com</span>，头像来自 <span class="kbd">avatars.githubusercontent.com</span>。某一个域名的 IP 失效，就会出现"文字出来了、排版全乱"的现象。</p>
+    <p>处理方式和第 4 条一样：更新 IP 后重开浏览器。程序内置了这几个域名的独立候选池，正常更新一次即可补齐。</p>
+
+    <h3>7. 双击没反应，或者提示需要管理员权限</h3>
+    <p>加速依赖 WinDivert 驱动做数据包拦截，必须管理员权限才能加载。判断标准还是第 1 步的 <code>nslookup</code>：</p>
+    <ul>
+        <li>返回 <span class="kbd">127.0.0.1</span> → 驱动已加载，权限正常。</li>
+        <li>返回公网 IP → 权限不足或驱动被拦截，右键「以管理员身份运行」。</li>
+    </ul>
+    <p>如果每次开机自启后都失效，是因为 Windows 的开机启动项默认不带提权。解决办法：控制面板 →「任务计划程序」→ 新建任务，勾选「使用最高权限运行」，触发器设为「登录时」，操作指向 <span class="kbd">FastGithub.UI.exe</span>。</p>
+
+    <h3>8. 和其他代理 / VPN 软件冲突</h3>
+    <p>本程序工作在数据包层，会直接接管 80 / 443 端口的连接。同时开启 Clash、v2ray、SSR 之类的代理工具，两者会争抢同一批连接，表现为时好时坏、随机超时。</p>
+    <p>建议只保留一个：要用本程序时先退出其他代理软件；本程序也不需要设置任何系统代理。</p>
+
+    <h3>9. 会不会拖慢其他网站</h3>
+    <p>不会。程序只对配置里列出的域名做重定向，其余网站的 DNS 与连接原样放行，不经过本地转发。</p>
+
+    <h3>10. 怎么彻底退出</h3>
+    <p>点击窗口右上角的 × 或最小化，都只是把它<b>隐藏到托盘</b>，加速仍在继续。要真正退出，在托盘图标上右键 →「关闭应用(&C)」。</p>
+
+    <h2 id="scope">③ 加速范围</h2>
+    <p>默认覆盖 GitHub 相关的核心域名：</p>
+    <table>
+        <tr>
+            <th style="width: 46%;">域名</th>
+            <th>用途</th>
+        </tr>
+        <tr><td>github.com</td><td>主站、仓库页面</td></tr>
+        <tr><td>api.github.com</td><td>API 调用、GitHub Desktop</td></tr>
+        <tr><td>gist.github.com</td><td>代码片段</td></tr>
+        <tr><td>codeload.github.com</td><td>源码压缩包下载</td></tr>
+        <tr><td>raw.githubusercontent.com</td><td>raw 文件、Homebrew 等</td></tr>
+        <tr><td>avatars / camo / objects.githubusercontent.com</td><td>头像、图片、附件</td></tr>
+        <tr><td>github.githubassets.com</td><td>页面样式与脚本</td></tr>
+        <tr><td>github.io</td><td>GitHub Pages 站点</td></tr>
+    </table>
+    <p>另外还内置了若干常见开发站点的规则（Google、Microsoft、npm 等），可在程序目录的 <span class="kbd">appsettings</span> 文件夹里查看，按需增删，改完重启程序生效。</p>
+    <div class="tip">
+        <b>不覆盖的情况：</b>直连 IP 的访问、非标准端口的服务、以及程序未列出的域名。这类情况本程序不会介入。
+    </div>
+
+    <h2 id="how">④ 工作原理</h2>
+    <ul>
+        <li><b>不改 hosts 文件</b>，不会在系统里留下需要手动清理的记录。</li>
+        <li><b>不设置系统代理</b>，所以不会影响不需要加速的程序，也不会让内网系统走错路由。</li>
+        <li>通过 WinDivert 驱动在内核层拦截 DNS 查询与 TCP 连接，把命中规则域名的请求重新解析到一个实测可用的 IP。</li>
+        <li>每个候选 IP 都要通过 TCP 连接与 TLS 握手两段校验才算"可用"，避免把只开放端口但拒绝握手的地址当成可用入口。</li>
+        <li>已确认可用的 IP 会写进 <span class="kbd">ipaddresses.json</span>，重启后立即复用，不必再从零测速。</li>
+    </ul>
+
+    <h2 id="safe">⑤ 安全与隐私</h2>
+    <p>为了做 TLS 转发，程序会在本机安装一张自签根证书。这张证书：</p>
+    <ul>
+        <li>只安装在本机，不会上传到任何服务器；</li>
+        <li>仅用于本程序发起的连接，不参与其他软件；</li>
+        <li>可以随时在 <code>certlm.msc</code> 中删除，删除后加速立即失效但系统不受影响。</li>
+    </ul>
+    <p>程序不收集账号密码，不上报浏览记录。日志文件保存在程序目录的 <span class="kbd">logs</span> 文件夹，按天分文件，只记录域名与连接结果，可随时删除。</p>
+
+    <h2 id="restore">⑥ 还原与卸载</h2>
+    <p>三步可以完全还原到使用之前的状态：</p>
+    <ol>
+        <li>托盘右键 →「关闭应用」。</li>
+        <li>按 <span class="kbd">Win + R</span> 输入 <code>certlm.msc</code>，在「受信任的根证书颁发机构 → 证书」中删除 <span class="kbd">FastGithub</span>。</li>
+        <li>删除程序目录即可。若开启过开机自启，请在「设置」页先关闭，或到任务管理器 →「启动」中禁用。</li>
+    </ol>
+    <div class="warn">
+        卸载后如果 GitHub 反而打不开，先执行 <code>ipconfig /flushdns</code> 清一下 DNS 缓存，再重开浏览器。
     </div>
 
     <hr />
+    <p>没找到对应的问题？把以下信息一起反馈，定位会快很多：</p>
+    <ul>
+        <li>托盘「设置」页里显示的运行状态与端口；</li>
+        <li>具体打不开的网址，以及是"立刻报错"还是"转圈超时"；</li>
+        <li>程序目录 <span class="kbd">logs</span> 下当天的那份日志。</li>
+    </ul>
 
-    <div>
-        <h3>git.exe</h3>
-        <blockquote>
-            <h4>clone、pull或push等证书异常</h4>
-            <p><small>fatal: unable to access 'https://github.com/xxx.git/'</small> </p>
-            <p><small>SSL certificate problem: unable to get local issuer certificate</small> </p>
-        </blockquote>
-
-        <h4>解决办法</h4>
-        <p>
-            <span class="badge">1</span>
-            <span>管理员身份运行：</span><code>cmd</code>
-        </p>
-        <p>
-            <span class="badge">2</span>
-            <span>在cmd输入：</span><code>git config --global http.sslverify false</code>
-        </p>
+    <div class="footer">
+        FastGithub　　下载与反馈：gitee.com/yuan71058/fast-github　|　github.com/yuan71058/FastGithub
     </div>
 
     <script type="text/javascript">
-        var codes = document.getElementsByTagName('code');
-        for (var i = 0; i < codes.length; i++) {
-            var code = codes[i];
-            code.setAttribute('title', '点击复制');
-            code.onclick = function () {
-                window.clipboardData.setData("Text", this.outerText);
+        (function () {
+            var codes = document.getElementsByTagName('code');
+            for (var i = 0; i < codes.length; i++) {
+                var code = codes[i];
+                code.setAttribute('title', '点击复制');
+                code.onclick = function () {
+                    var text = this.innerText || this.textContent;
+                    try {
+                        if (window.clipboardData) {
+                            window.clipboardData.setData("Text", text);
+                            return;
+                        }
+                        var area = document.createElement('textarea');
+                        area.value = text;
+                        document.body.appendChild(area);
+                        area.select();
+                        document.execCommand('copy');
+                        document.body.removeChild(area);
+                    } catch (e) {
+                    }
+                };
             }
-        }
+        })();
     </script>
 </body>
-
 </html>

@@ -1,11 +1,11 @@
 ﻿using System;
-using System.Configuration;
+using System.ComponentModel;
 using System.Diagnostics;
-using System.Net.Http;
 using System.Reflection;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Interop;
+using System.Windows.Threading;
 
 namespace FastGithub.UI
 {
@@ -15,8 +15,14 @@ namespace FastGithub.UI
     public partial class MainWindow : Window
     {
         private readonly System.Windows.Forms.NotifyIcon notifyIcon;
+        private readonly DispatcherTimer autoRefreshTimer;
         private const string FASTGITHUB_UI = "FastGithub.UI";
         private const string RELEASES_URI = "https://gitee.com/yuan71058/fast-github/releases";
+
+        /// <summary>
+        /// 启动后自动更新IP前的等待时间，留出后端加载驱动与首轮初始化的时间
+        /// </summary>
+        private static readonly TimeSpan startupRefreshDelay = TimeSpan.FromSeconds(15d);
 
         public MainWindow()
         {
@@ -26,7 +32,7 @@ namespace FastGithub.UI
             upgrade.Click += (s, e) => Process.Start(RELEASES_URI);
 
             var refreshIp = new System.Windows.Forms.MenuItem("更新IP(&R)");
-            refreshIp.Click += async (s, e) => await this.RefreshIpAsync();
+            refreshIp.Click += async (s, e) => await IpRefreshService.RunAsync();
 
             var settings = new System.Windows.Forms.MenuItem("设置(&S)");
             settings.Click += (s, e) =>
@@ -60,88 +66,93 @@ namespace FastGithub.UI
                 }
             };
 
+            // 托盘气泡会先判断设置里的开关，所以先把订阅挂上再触发任何刷新
+            IpRefreshService.Reported += this.OnRefreshReported;
+            // ApplicationSettingsBase 的 PropertyChanged 是显式实现，必须转成接口再订阅
+            ((INotifyPropertyChanged)Properties.Settings.Default).PropertyChanged += this.OnSettingChanged;
+
+            this.autoRefreshTimer = new DispatcherTimer();
+            this.autoRefreshTimer.Tick += async (s, e) => await this.OnAutoRefreshTickAsync();
+            this.ResetAutoRefreshTimer();
+
             if (Properties.Settings.Default.StartMinimized)
             {
                 this.Hide();
             }
+
+            if (Properties.Settings.Default.AutoRefreshOnStart)
+            {
+                this.RunStartupRefreshAsync();
+            }
         }
 
         /// <summary>
-        /// 通过UI内部通信端口请求fastgithub刷新IP
+        /// 启动后延迟自动更新一次IP
         /// </summary>
         /// <returns></returns>
-        private async Task RefreshIpAsync()
+        private async void RunStartupRefreshAsync()
         {
-            this.ShowStatus("正在更新IP，请稍候…");
-            try
+            await Task.Delay(startupRefreshDelay);
+            await IpRefreshService.RunAsync();
+        }
+
+        /// <summary>
+        /// 自动更新间隔到点
+        /// </summary>
+        /// <returns></returns>
+        private async Task OnAutoRefreshTickAsync()
+        {
+            // 手动刷新期间不叠加另一次刷新
+            if (IpRefreshService.IsRunning == true)
             {
-                var baseUri = await UiApi.GetBaseUriAsync();
-                // 后端刷新有45秒预算，这里的超时必须大于它，否则后端还没返回就被UI取消
-                using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(120d) };
-                var requestTask = httpClient.GetStringAsync($"{baseUri}/refresh-ip");
-
-                // 后端刷新较慢时先给一次反馈，避免点击后长时间没有任何提示
-                var completedTask = await Task.WhenAny(requestTask, Task.Delay(TimeSpan.FromSeconds(3d)));
-                if (completedTask != requestTask)
-                {
-                    this.ShowStatus("IP更新进行中，后端正在清空缓存并重新解析测速…");
-                    this.notifyIcon.ShowBalloonTip(3000, FASTGITHUB_UI, "IP更新进行中，正在重新解析与测速…", System.Windows.Forms.ToolTipIcon.Info);
-                }
-
-                var json = await requestTask;
-
-                RefreshIpResult? result = null;
-                try
-                {
-                    result = Newtonsoft.Json.JsonConvert.DeserializeObject<RefreshIpResult>(json);
-                }
-                catch (Newtonsoft.Json.JsonException)
-                {
-                }
-
-                var message = "已触发IP更新，但后端未返回刷新结果（后端可能为旧版本）";
-                if (result != null)
-                {
-                    if (string.IsNullOrEmpty(result.Error) == false)
-                    {
-                        message = $"IP更新失败：{result.Error}";
-                    }
-                    else
-                    {
-                        message = result.TimedOut
-                            ? $"IP更新部分完成（超时结束）：{result.DomainCount}个域名、{result.AddressCount}个可用IP"
-                            : $"IP更新完成：{result.DomainCount}个域名、{result.AddressCount}个可用IP";
-
-                        message += result.HostsUpdated == true
-                            ? $"（在线hosts源{result.HostsDomainCount}个域名）"
-                            : $"（在线hosts源更新失败：{result.HostsError}）";
-
-                        if (result.TimedOut == true)
-                        {
-                            message += "；未完成的域名保留原IP，可稍后再次更新";
-                        }
-                    }
-                }
-
-                if (UiApi.Detected == false)
-                {
-                    message += "；未探测到新版后端，请确认 fastgithub.exe 已更新并正在运行";
-                }
-
-                this.ShowStatus(message);
-                this.notifyIcon.ShowBalloonTip(5000, FASTGITHUB_UI, message, System.Windows.Forms.ToolTipIcon.Info);
+                return;
             }
-            catch (TaskCanceledException)
+
+            await IpRefreshService.RunAsync();
+        }
+
+        /// <summary>
+        /// 按当前设置重建自动更新定时器
+        /// </summary>
+        private void ResetAutoRefreshTimer()
+        {
+            this.autoRefreshTimer.Stop();
+
+            var hours = Properties.Settings.Default.AutoRefreshHours;
+            if (hours <= 0)
             {
-                var message = "IP更新超时：后端120秒内未返回，刷新可能仍在后台继续，稍后可直接使用";
-                this.ShowStatus(message);
-                this.notifyIcon.ShowBalloonTip(5000, FASTGITHUB_UI, message, System.Windows.Forms.ToolTipIcon.Warning);
+                return;
             }
-            catch (Exception ex)
+
+            this.autoRefreshTimer.Interval = TimeSpan.FromHours(hours);
+            this.autoRefreshTimer.Start();
+        }
+
+        /// <summary>
+        /// 设置项变化时同步定时器
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void OnSettingChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(Properties.Settings.Default.AutoRefreshHours))
             {
-                var message = $"IP更新失败：{ex.Message}";
-                this.ShowStatus(message);
-                this.notifyIcon.ShowBalloonTip(5000, FASTGITHUB_UI, message, System.Windows.Forms.ToolTipIcon.Error);
+                this.Dispatcher.Invoke(new Action(this.ResetAutoRefreshTimer));
+            }
+        }
+
+        /// <summary>
+        /// IP刷新的反馈统一显示在状态栏，必要时弹托盘气泡
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void OnRefreshReported(object sender, IpRefreshEventArgs e)
+        {
+            this.ShowStatus(e.Message);
+
+            if (e.IsFinal == true && Properties.Settings.Default.ShowBalloon == true)
+            {
+                this.notifyIcon.ShowBalloonTip(5000, FASTGITHUB_UI, e.Message, e.Icon);
             }
         }
 
@@ -193,6 +204,9 @@ namespace FastGithub.UI
         /// <param name="e"></param>
         protected override void OnClosed(EventArgs e)
         {
+            this.autoRefreshTimer.Stop();
+            IpRefreshService.Reported -= this.OnRefreshReported;
+            ((INotifyPropertyChanged)Properties.Settings.Default).PropertyChanged -= this.OnSettingChanged;
             this.notifyIcon.Icon = null;
             this.notifyIcon.Dispose();
             base.OnClosed(e);
