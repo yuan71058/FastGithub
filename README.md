@@ -1,6 +1,6 @@
 # FastGithub
 
-![Version](https://img.shields.io/badge/version-2.4.2-blue)
+![Version](https://img.shields.io/badge/version-2.4.3-blue)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-informational)
 ![Framework](https://img.shields.io/badge/.NET-7.0-512BD4)
 ![UI](https://img.shields.io/badge/UI-WPF%20(net45)-9E9E9E)
@@ -465,6 +465,14 @@ powershell -ExecutionPolicy Bypass -File .\tools\Update-FastGithubIp.ps1 -Root E
 ---
 
 ## 更新日志
+
+### v2.4.3 (2026-11-01)
+
+**调整**：托盘右键「检测更新」改为跳转 Gitee 发行版页面。
+
+- 指向由 `https://github.com/yuan71058/FastGithub/releases` 改为 `https://gitee.com/yuan71058/fast-github/releases`
+- 原因：GitHub 页面在国内网络下经常打不开，更新入口本身就是最容易失效的页面；Gitee 可直连
+- 代码位置：`FastGithub.UI/MainWindow.xaml.cs` 的 `RELEASES_URI` 常量
 
 ### v2.4.2 (2026-11-01)
 
