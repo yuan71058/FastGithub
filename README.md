@@ -1,6 +1,6 @@
 # FastGithub
 
-![Version](https://img.shields.io/badge/version-2.4.6-blue)
+![Version](https://img.shields.io/badge/version-2.5.0-blue)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-informational)
 ![Framework](https://img.shields.io/badge/.NET-7.0-512BD4)
 ![UI](https://img.shields.io/badge/UI-WPF%20(net45)-9E9E9E)
@@ -517,9 +517,11 @@ powershell -ExecutionPolicy Bypass -File .\tools\Update-FastGithubIp.ps1 -Root E
 
 ## 更新日志
 
-### v2.4.6 (2026-11-01)
+### v2.5.0 (2026-11-01)
 
-**稳定性修复版**：解决页面反复转圈、时好时坏的问题，并优化候选 IP 与冷启动。
+**功能与稳定性版本**：新增界面设置页、重写问答页，并修复页面反复转圈、时好时坏的问题。
+
+> v2.4.6 未单独发布，其全部内容已包含在本版本中。
 
 修复：
 
