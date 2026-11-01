@@ -1,6 +1,6 @@
 # FastGithub
 
-![Version](https://img.shields.io/badge/version-2.4.4-blue)
+![Version](https://img.shields.io/badge/version-2.4.5-blue)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-informational)
 ![Framework](https://img.shields.io/badge/.NET-7.0-512BD4)
 ![UI](https://img.shields.io/badge/UI-WPF%20(net45)-9E9E9E)
@@ -494,6 +494,16 @@ powershell -ExecutionPolicy Bypass -File .\tools\Update-FastGithubIp.ps1 -Root E
 ---
 
 ## 更新日志
+
+### v2.4.5 (2026-11-01)
+
+**文档与分发整理版**：核心代理逻辑与 v2.4.4 完全一致，无功能代码改动。
+
+- README 新增「仓库与下载」章节，同时给出 Gitee 与 GitHub 的仓库地址、发行版地址与 Issue 入口，两个仓库内容保持同步
+- 「快速开始」补充发布包下载入口，并注明国内优先使用 Gitee 发行版
+- 「构建与开发」补充两个仓库的 `git clone` 命令，一边访问不通时可换另一边拉取
+- 说明托盘「检测更新」指向 Gitee 发行版页面，不受 GitHub 页面打不开影响
+- 版本号同步至 2.4.5，便于在各平台发行版页面区分文档更新
 
 ### v2.4.4 (2026-11-01)
 
