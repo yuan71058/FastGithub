@@ -38,7 +38,16 @@ namespace FastGithub.DomainResolve
     /// </summary>
     sealed class HostsService
     {
-        private const string DEFAULT_HOSTS_URL = "https://raw.hellogithub.com/hosts.json";
+        /// <summary>
+        /// 在线hosts源列表，按顺序尝试后合并
+        /// 单一源一旦下线，候选池就只剩被污染的DNS结果，所以这里保留多个来源互为备份。
+        /// 两个源都是非GitHub域名，拉取本项配置本身不受GitHub连通性影响。
+        /// </summary>
+        private static readonly string[] HOSTS_URLS =
+        {
+            "https://raw.hellogithub.com/hosts.json",
+            "https://hosts.gitcdn.top/hosts.txt",
+        };
 
         private readonly HttpClient httpClient;
         private readonly ILogger<HostsService> logger;
@@ -51,33 +60,103 @@ namespace FastGithub.DomainResolve
         public HostsService(ILogger<HostsService> logger)
         {
             this.logger = logger;
-            this.httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(10d) };
+            this.httpClient = new HttpClient(new HttpClientHandler { UseProxy = false })
+            {
+                Timeout = TimeSpan.FromSeconds(20d)
+            };
         }
 
         /// <summary>
-        /// 刷新hosts映射，拉取远程hosts源并解析为“域名->IP”缓存
+        /// 刷新hosts映射，拉取全部远程hosts源并合并为“域名->IP”缓存
         /// </summary>
         /// <param name="cancellationToken"></param>
         /// <returns></returns>
         public async Task<HostsRefreshResult> RefreshAsync(CancellationToken cancellationToken)
         {
-            try
-            {
-                var content = await this.httpClient.GetStringAsync(DEFAULT_HOSTS_URL, cancellationToken);
-                var map = Parse(content);
+            var merged = new Dictionary<string, IReadOnlyList<IPAddress>>(StringComparer.OrdinalIgnoreCase);
+            var errors = new List<string>();
+            var successCount = 0;
 
-                this.mapping.Clear();
+            // 并行拉取：串行时每个慢源都要额外等一轮超时，总耗时会叠加到几十秒
+            var fetches = await Task.WhenAll(HOSTS_URLS.Select(url => this.FetchAsync(url, cancellationToken)));
+
+            foreach (var fetch in fetches)
+            {
+                if (fetch.Content == null)
+                {
+                    errors.Add($"{fetch.Url}: {fetch.Error}");
+                    this.logger.LogWarning($"在线hosts源{fetch.Url}更新失败：{fetch.Error}");
+                    continue;
+                }
+
+                var map = Parse(fetch.Content);
+                if (map.Count == 0)
+                {
+                    errors.Add($"{fetch.Url}: 未解析出域名");
+                    continue;
+                }
+
+                successCount++;
                 foreach (var item in map)
                 {
-                    this.mapping[item.Key] = item.Value;
+                    if (merged.TryGetValue(item.Key, out var exists) == false)
+                    {
+                        merged[item.Key] = item.Value;
+                    }
+                    else
+                    {
+                        merged[item.Key] = exists.Concat(item.Value).Distinct().ToArray();
+                    }
                 }
-                this.logger.LogInformation($"已更新在线hosts解析，共{this.mapping.Count}个域名");
-                return new HostsRefreshResult { Success = true, DomainCount = this.mapping.Count };
+            }
+
+            // 全部源都失败时保留上一次的映射，不能因为源故障就把候选池清空
+            if (successCount == 0)
+            {
+                this.logger.LogWarning($"在线hosts源全部更新失败：{string.Join("; ", errors)}");
+                return new HostsRefreshResult
+                {
+                    Success = false,
+                    DomainCount = this.mapping.Count,
+                    Error = string.Join("; ", errors)
+                };
+            }
+
+            this.mapping.Clear();
+            foreach (var item in merged)
+            {
+                this.mapping[item.Key] = item.Value;
+            }
+
+            this.logger.LogInformation($"已更新在线hosts解析，{successCount}/{HOSTS_URLS.Length}个源、共{this.mapping.Count}个域名");
+            return new HostsRefreshResult
+            {
+                Success = true,
+                DomainCount = this.mapping.Count,
+                Error = errors.Count == 0 ? null : string.Join("; ", errors)
+            };
+        }
+
+        /// <summary>
+        /// 拉取单个hosts源
+        /// </summary>
+        /// <param name="url"></param>
+        /// <param name="cancellationToken"></param>
+        /// <returns></returns>
+        private async Task<(string Url, string? Content, string? Error)> FetchAsync(string url, CancellationToken cancellationToken)
+        {
+            try
+            {
+                var content = await this.httpClient.GetStringAsync(url, cancellationToken);
+                return (url, content, null);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
             }
             catch (Exception ex)
             {
-                this.logger.LogWarning($"在线hosts源更新失败：{ex.Message}");
-                return new HostsRefreshResult { Success = false, DomainCount = this.mapping.Count, Error = ex.Message };
+                return (url, null, ex.Message);
             }
         }
 

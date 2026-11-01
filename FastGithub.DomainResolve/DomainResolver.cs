@@ -50,6 +50,14 @@ namespace FastGithub.DomainResolve
             {
                 this.dnsEndPointAddress.TryAdd(endPoint, Array.Empty<IPAddress>());
             }
+
+            // 恢复上次运行已验证过的IP：重启后首个请求就能命中历史可用入口，
+            // 不必等第一轮测速跑完（冷启动时页面并发几十个请求会同时踩空）。
+            // IP是否仍然可用由后续测速复核，不可用的会被剔除。
+            foreach (var (endPoint, addresses) in persistence.ReadAddressEntries())
+            {
+                this.dnsEndPointAddress[endPoint] = addresses;
+            }
         }
 
         /// <summary>
@@ -168,7 +176,27 @@ namespace FastGithub.DomainResolve
                 }
             }
 
+            // 落盘一份快照，供下次启动直接复用已验证的入口IP
+            await this.SaveAddressEntriesAsync().ConfigureAwait(false);
+
             return (domainCount, addressCount, timedOut);
+        }
+
+        /// <summary>
+        /// 保存当前域名与IP的对应关系
+        /// </summary>
+        /// <returns></returns>
+        private async Task SaveAddressEntriesAsync()
+        {
+            try
+            {
+                var snapshot = this.dnsEndPointAddress.ToArray();
+                await this.persistence.WriteAddressEntriesAsync(snapshot, CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                this.logger.LogWarning($"保存IP记录异常：{ex.Message}");
+            }
         }
 
         /// <summary>

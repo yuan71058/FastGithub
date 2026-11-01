@@ -55,33 +55,76 @@ namespace FastGithub.DomainResolve
         /// GitHub关键域名的兜底候选IP
         /// 在线hosts源与DNS结果都可能只剩被阻断的地址，这里补充历史上可用的入口段作为备选。
         /// 是否真正可用仍由IPAddressService的TCP+TLS探测决定，这里只扩大候选集合。
+        ///
+        /// 顺序按本机实测延迟排（2026-11-01），同一域名的不同Azure段差异可达20倍：
+        /// github.com   20.27.177.113=0.55s / 20.205.243.166=0.91s / 20.29.134.23=1.27s / 140.82.113.3=6.82s
+        /// api.github   20.27.177.113=0.24s / 20.205.243.166=0.35s / 20.29.134.23=0.51s / 140.82.121.6=12s超时
+        /// 静态资源走Fastly，不同后缀服务不同内容：.133=文件内容 / .153=Pages / .154=站点静态资源
         /// </summary>
         private static readonly Dictionary<string, IPAddress[]> seedAddresses = new(StringComparer.OrdinalIgnoreCase)
         {
             ["github.com"] = new[]
             {
-                IPAddress.Parse("20.205.243.166"),
-                IPAddress.Parse("20.26.156.215"),
-                IPAddress.Parse("20.29.134.23"),
-                IPAddress.Parse("20.233.83.145"),
                 IPAddress.Parse("20.27.177.113"),
+                IPAddress.Parse("20.205.243.166"),
+                IPAddress.Parse("20.29.134.23"),
+                IPAddress.Parse("20.26.156.215"),
+                IPAddress.Parse("20.233.83.145"),
                 IPAddress.Parse("140.82.113.3"),
             },
             ["api.github.com"] = new[]
             {
-                IPAddress.Parse("20.205.243.168"),
+                IPAddress.Parse("20.27.177.113"),
                 IPAddress.Parse("20.205.243.166"),
+                IPAddress.Parse("20.205.243.168"),
                 IPAddress.Parse("20.29.134.23"),
             },
             ["gist.github.com"] = new[]
             {
                 IPAddress.Parse("20.205.243.166"),
+                IPAddress.Parse("20.27.177.113"),
                 IPAddress.Parse("20.26.156.215"),
             },
             ["codeload.github.com"] = new[]
             {
                 IPAddress.Parse("20.205.243.165"),
+                IPAddress.Parse("20.27.177.113"),
                 IPAddress.Parse("20.26.156.215"),
+            },
+            ["raw.githubusercontent.com"] = new[]
+            {
+                IPAddress.Parse("185.199.110.133"),
+                IPAddress.Parse("185.199.109.133"),
+                IPAddress.Parse("185.199.111.133"),
+                IPAddress.Parse("185.199.108.133"),
+            },
+            ["avatars.githubusercontent.com"] = new[]
+            {
+                IPAddress.Parse("185.199.110.133"),
+                IPAddress.Parse("185.199.109.133"),
+                IPAddress.Parse("185.199.111.133"),
+                IPAddress.Parse("185.199.108.133"),
+            },
+            ["camo.githubusercontent.com"] = new[]
+            {
+                IPAddress.Parse("185.199.110.133"),
+                IPAddress.Parse("185.199.109.133"),
+                IPAddress.Parse("185.199.111.133"),
+                IPAddress.Parse("185.199.108.133"),
+            },
+            ["github.githubassets.com"] = new[]
+            {
+                IPAddress.Parse("185.199.108.154"),
+                IPAddress.Parse("185.199.110.154"),
+                IPAddress.Parse("185.199.109.154"),
+                IPAddress.Parse("185.199.111.154"),
+            },
+            ["github.io"] = new[]
+            {
+                IPAddress.Parse("185.199.110.153"),
+                IPAddress.Parse("185.199.111.153"),
+                IPAddress.Parse("185.199.109.153"),
+                IPAddress.Parse("185.199.108.153"),
             },
         };
 
