@@ -125,11 +125,21 @@ namespace FastGithub.DomainResolve
             var addressElapsedTasks = ipEndPoints.Select(item => this.GetAddressElapsedAsync(item, dnsEndPoint, cancellationToken));
             var addressElapseds = await Task.WhenAll(addressElapsedTasks);
 
-            return addressElapseds
+            var usableAddresses = addressElapseds
                 .Where(item => item.Elapsed < TimeSpan.MaxValue)
                 .OrderBy(item => item.Elapsed)
                 .Select(item => item.Address)
                 .ToArray();
+
+            // 全部探测失败时退回候选集合，而不是返回空：
+            // 网络抖动会让探测在短时间内把所有IP都判为不可用，但实际请求可能仍然成功。
+            // 退回后由实际请求去验证，失败的IP会被ReportFailure拉黑，不会长期占用候选。
+            if (usableAddresses.Length == 0)
+            {
+                return ipEndPoints.Select(item => item.Address).ToArray();
+            }
+
+            return usableAddresses;
         }
 
 

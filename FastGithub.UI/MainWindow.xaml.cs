@@ -76,7 +76,8 @@ namespace FastGithub.UI
             try
             {
                 var baseUri = await UiApi.GetBaseUriAsync();
-                using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(60d) };
+                // 后端刷新有45秒预算，这里的超时必须大于它，否则后端还没返回就被UI取消
+                using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(120d) };
                 var requestTask = httpClient.GetStringAsync($"{baseUri}/refresh-ip");
 
                 // 后端刷新较慢时先给一次反馈，避免点击后长时间没有任何提示
@@ -101,10 +102,25 @@ namespace FastGithub.UI
                 var message = "已触发IP更新，但后端未返回刷新结果（后端可能为旧版本）";
                 if (result != null)
                 {
-                    message = $"IP更新完成：{result.DomainCount}个域名、{result.AddressCount}个可用IP";
-                    message += result.HostsUpdated == true
-                        ? $"（在线hosts源{result.HostsDomainCount}个域名）"
-                        : $"（在线hosts源更新失败：{result.HostsError}）";
+                    if (string.IsNullOrEmpty(result.Error) == false)
+                    {
+                        message = $"IP更新失败：{result.Error}";
+                    }
+                    else
+                    {
+                        message = result.TimedOut
+                            ? $"IP更新部分完成（超时结束）：{result.DomainCount}个域名、{result.AddressCount}个可用IP"
+                            : $"IP更新完成：{result.DomainCount}个域名、{result.AddressCount}个可用IP";
+
+                        message += result.HostsUpdated == true
+                            ? $"（在线hosts源{result.HostsDomainCount}个域名）"
+                            : $"（在线hosts源更新失败：{result.HostsError}）";
+
+                        if (result.TimedOut == true)
+                        {
+                            message += "；未完成的域名保留原IP，可稍后再次更新";
+                        }
+                    }
                 }
 
                 if (UiApi.Detected == false)
@@ -114,6 +130,12 @@ namespace FastGithub.UI
 
                 this.ShowStatus(message);
                 this.notifyIcon.ShowBalloonTip(5000, FASTGITHUB_UI, message, System.Windows.Forms.ToolTipIcon.Info);
+            }
+            catch (TaskCanceledException)
+            {
+                var message = "IP更新超时：后端120秒内未返回，刷新可能仍在后台继续，稍后可直接使用";
+                this.ShowStatus(message);
+                this.notifyIcon.ShowBalloonTip(5000, FASTGITHUB_UI, message, System.Windows.Forms.ToolTipIcon.Warning);
             }
             catch (Exception ex)
             {

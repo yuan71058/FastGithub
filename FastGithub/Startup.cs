@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Serilog;
 using Serilog.Sinks.Network;
 using System;
@@ -146,9 +147,26 @@ namespace FastGithub
             app.MapGet("/refresh-ip", async context =>
             {
                 var resolver = context.RequestServices.GetRequiredService<IDomainResolver>();
+                var logger = context.RequestServices.GetRequiredService<ILogger<IDomainResolver>>();
                 // 不与请求的生命周期绑定，避免UI超时或断开导致刷新半途终止
                 using var timeoutTokenSource = new CancellationTokenSource(refreshTimeout);
-                var result = await resolver.RefreshHostsAsync(timeoutTokenSource.Token);
+
+                RefreshIpResult result;
+                try
+                {
+                    result = await resolver.RefreshHostsAsync(timeoutTokenSource.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    // 已完成的域名已经在内部生效，这里只需要给出结构化结果，不能让UI拿到500
+                    logger.LogWarning("IP刷新在预算内未完成，返回已完成的结果");
+                    result = new RefreshIpResult { TimedOut = true };
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "IP刷新异常");
+                    result = new RefreshIpResult { Error = ex.Message };
+                }
 
                 context.Response.ContentType = "application/json;charset=utf-8";
                 await context.Response.WriteAsync(JsonSerializer.Serialize(result, jsonOptions));

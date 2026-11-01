@@ -16,6 +16,16 @@ namespace FastGithub.DomainResolve
         public int AddressCount { get; set; }
 
         /// <summary>
+        /// 是否因超时提前结束（已完成的域名照常生效，其余保留原IP）
+        /// </summary>
+        public bool TimedOut { get; set; }
+
+        /// <summary>
+        /// 刷新过程中的异常信息，无异常时为null
+        /// </summary>
+        public string? Error { get; set; }
+
+        /// <summary>
         /// 在线hosts源是否更新成功
         /// </summary>
         public bool HostsUpdated { get; set; }

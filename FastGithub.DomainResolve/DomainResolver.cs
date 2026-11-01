@@ -16,7 +16,7 @@ namespace FastGithub.DomainResolve
     sealed class DomainResolver : IDomainResolver
     {
         private const int MAX_IP_COUNT = 3;
-        private const int MAX_CONCURRENCY = 8;
+        private const int MAX_CONCURRENCY = 12;
         private readonly DnsClient dnsClient;
         private readonly PersistenceService persistence;
         private readonly IPAddressService addressService;
@@ -94,40 +94,80 @@ namespace FastGithub.DomainResolve
         /// 对所有节点进行并发测速
         /// </summary>
         /// <param name="cancellationToken"></param>
-        /// <returns>参与测速的域名数量与可用IP数量</returns>
-        private async Task<(int DomainCount, int AddressCount)> TestSpeedCoreAsync(CancellationToken cancellationToken)
+        /// <returns>参与测速的域名数量、可用IP数量、是否因超时提前结束</returns>
+        private async Task<(int DomainCount, int AddressCount, bool TimedOut)> TestSpeedCoreAsync(CancellationToken cancellationToken)
         {
             var domainCount = 0;
             var addressCount = 0;
+            var timedOut = false;
 
             var keyValues = this.dnsEndPointAddress.OrderBy(item => item.Value.Length).ToArray();
-            var parallelOptions = new ParallelOptions
+            // 不Dispose：软超时返回后后台任务还要Release，提前Dispose会抛ObjectDisposedException
+            var concurrency = new SemaphoreSlim(MAX_CONCURRENCY);
+
+            var tasks = keyValues.Select(async keyValue =>
             {
-                MaxDegreeOfParallelism = MAX_CONCURRENCY,
-                CancellationToken = cancellationToken
-            };
-
-            await Parallel.ForEachAsync(keyValues, parallelOptions, async (keyValue, token) =>
-            {
-                var dnsEndPoint = keyValue.Key;
-                var oldAddresses = keyValue.Value;
-
-                var newAddresses = await this.addressService.GetAddressesAsync(dnsEndPoint, oldAddresses, token);
-                this.dnsEndPointAddress[dnsEndPoint] = newAddresses;
-
-                Interlocked.Add(ref domainCount, 1);
-                Interlocked.Add(ref addressCount, newAddresses.Length);
-
-                var oldSegmentums = oldAddresses.Take(MAX_IP_COUNT);
-                var newSegmentums = newAddresses.Take(MAX_IP_COUNT);
-                if (oldSegmentums.SequenceEqual(newSegmentums) == false)
+                await concurrency.WaitAsync(CancellationToken.None).ConfigureAwait(false);
+                try
                 {
-                    var addressArray = string.Join(", ", newSegmentums.Select(item => item.ToString()));
-                    this.logger.LogInformation($"{dnsEndPoint.Host}:{dnsEndPoint.Port}->[{addressArray}]");
-                }
-            });
+                    var dnsEndPoint = keyValue.Key;
+                    var oldAddresses = keyValue.Value;
 
-            return (domainCount, addressCount);
+                    var newAddresses = await this.addressService.GetAddressesAsync(dnsEndPoint, oldAddresses, cancellationToken).ConfigureAwait(false);
+
+                    // 网络抖动时探测可能把所有IP都判为不可用，此时必须保留原IP：
+                    // 用空列表覆盖会让该域名彻底没有可用地址，刷新后反而更糟
+                    if (newAddresses.Length > 0)
+                    {
+                        this.dnsEndPointAddress[dnsEndPoint] = newAddresses;
+                    }
+                    else
+                    {
+                        newAddresses = oldAddresses.ToArray();
+                    }
+
+                    Interlocked.Add(ref domainCount, 1);
+                    Interlocked.Add(ref addressCount, newAddresses.Length);
+
+                    var oldSegmentums = oldAddresses.Take(MAX_IP_COUNT);
+                    var newSegmentums = newAddresses.Take(MAX_IP_COUNT);
+                    if (oldSegmentums.SequenceEqual(newSegmentums) == false)
+                    {
+                        var addressArray = string.Join(", ", newSegmentums.Select(item => item.ToString()));
+                        this.logger.LogInformation($"{dnsEndPoint.Host}:{dnsEndPoint.Port}->[{addressArray}]");
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                }
+                catch (Exception ex)
+                {
+                    this.logger.LogWarning($"{keyValue.Key.Host}测速异常：{ex.Message}");
+                }
+                finally
+                {
+                    concurrency.Release();
+                }
+            }).ToArray();
+
+            var allTask = Task.WhenAll(tasks);
+
+            // 用软超时：预算用完立即返回已完成的部分，剩余域名在后台继续跑完。
+            // 直接取消会让正在进行的DNS查询拖到自然超时才结束，请求被拖成70秒以上。
+            var cancelSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            using (cancellationToken.Register(() => cancelSource.TrySetResult(true)))
+            {
+                var completedTask = await Task.WhenAny(allTask, cancelSource.Task).ConfigureAwait(false);
+                if (completedTask != allTask)
+                {
+                    timedOut = true;
+                    this.logger.LogWarning($"测速未在预算内完成：{domainCount}/{keyValues.Length}个域名，已完成的IP直接生效，其余继续在后台完成");
+                    // 观察后台任务的异常，避免未观察异常
+                    _ = allTask.ContinueWith(task => { _ = task.Exception; }, TaskScheduler.Default);
+                }
+            }
+
+            return (domainCount, addressCount, timedOut);
         }
 
         /// <summary>
@@ -140,9 +180,9 @@ namespace FastGithub.DomainResolve
             this.logger.LogInformation("触发IP刷新：清空缓存并重新解析测速");
             this.ClearCache();
 
-            var (domainCount, addressCount) = await this.TestSpeedCoreAsync(cancellationToken);
-            var hosts = await this.hostsService.RefreshAsync(cancellationToken);
-            return this.CreateResult(domainCount, addressCount, hosts);
+            var (domainCount, addressCount, timedOut) = await this.TestSpeedCoreAsync(cancellationToken);
+            var hosts = await this.hostsService.RefreshAsync(CancellationToken.None);
+            return this.CreateResult(domainCount, addressCount, hosts, timedOut);
         }
 
         /// <summary>
@@ -155,9 +195,9 @@ namespace FastGithub.DomainResolve
             this.logger.LogInformation("手动触发IP刷新：优先使用在线hosts源");
             this.ClearCache();
 
-            var hosts = await this.hostsService.RefreshAsync(cancellationToken);
-            var (domainCount, addressCount) = await this.TestSpeedCoreAsync(cancellationToken);
-            return this.CreateResult(domainCount, addressCount, hosts);
+            var hosts = await this.hostsService.RefreshAsync(CancellationToken.None);
+            var (domainCount, addressCount, timedOut) = await this.TestSpeedCoreAsync(cancellationToken);
+            return this.CreateResult(domainCount, addressCount, hosts, timedOut);
         }
 
         /// <summary>
@@ -194,14 +234,24 @@ namespace FastGithub.DomainResolve
         /// <param name="domainCount"></param>
         /// <param name="addressCount"></param>
         /// <param name="hosts"></param>
+        /// <param name="timedOut">是否因超时提前结束</param>
         /// <returns></returns>
-        private RefreshIpResult CreateResult(int domainCount, int addressCount, HostsRefreshResult hosts)
+        private RefreshIpResult CreateResult(int domainCount, int addressCount, HostsRefreshResult hosts, bool timedOut = false)
         {
-            this.logger.LogInformation($"IP刷新完成：{domainCount}个域名、{addressCount}个可用IP");
+            if (timedOut == true)
+            {
+                this.logger.LogWarning($"IP刷新超时结束：{domainCount}个域名、{addressCount}个可用IP，其余域名保留原IP");
+            }
+            else
+            {
+                this.logger.LogInformation($"IP刷新完成：{domainCount}个域名、{addressCount}个可用IP");
+            }
+
             return new RefreshIpResult
             {
                 DomainCount = domainCount,
                 AddressCount = addressCount,
+                TimedOut = timedOut,
                 HostsUpdated = hosts.Success,
                 HostsDomainCount = hosts.DomainCount,
                 HostsError = hosts.Error

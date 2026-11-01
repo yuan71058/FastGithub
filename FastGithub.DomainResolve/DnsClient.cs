@@ -32,12 +32,19 @@ namespace FastGithub.DomainResolve
         private readonly ILogger<DnsClient> logger;
 
         private readonly ConcurrentDictionary<string, SemaphoreSlim> semaphoreSlims = new();
+        private readonly ConcurrentDictionary<IPEndPoint, int> dnsFailureCounts = new();
         private readonly IMemoryCache dnsStateCache = new MemoryCache(Options.Create(new MemoryCacheOptions()));
         private readonly IMemoryCache dnsLookupCache = new MemoryCache(Options.Create(new MemoryCacheOptions()));
 
         private readonly TimeSpan stateExpiration = TimeSpan.FromMinutes(5d);
         private readonly TimeSpan minTimeToLive = TimeSpan.FromSeconds(30d);
         private readonly TimeSpan maxTimeToLive = TimeSpan.FromMinutes(10d);
+
+        /// <summary>
+        /// 同一个DNS连续查询失败达到该次数就不再使用
+        /// TCP能连上但查询被重置的DNS必须靠这个熔断排除，否则每个域名都要在它身上白等一次超时
+        /// </summary>
+        private const int DNS_FAILURE_THRESHOLD = 3;
 
         private readonly int resolveTimeout = (int)TimeSpan.FromSeconds(4d).TotalMilliseconds;
         private static readonly TimeSpan tcpConnectTimeout = TimeSpan.FromSeconds(2d);
@@ -230,6 +237,42 @@ namespace FastGithub.DomainResolve
         }
 
         /// <summary>
+        /// 记录一次DNS查询成功
+        /// 这里只递减而不是清零：偶发成功就清零会让持续被干扰的DNS永远熔断不掉
+        /// </summary>
+        /// <param name="dns">DNS服务器</param>
+        private void ReportDnsSuccess(IPEndPoint dns)
+        {
+            if (dns.Port != DNS_PORT)
+            {
+                return;
+            }
+
+            this.dnsFailureCounts.AddOrUpdate(dns, 0, (_, value) => value > 0 ? value - 1 : 0);
+        }
+
+        /// <summary>
+        /// 记录一次DNS查询失败
+        /// 部分网络的53端口能建立TCP连接，但查询报文会被重置，仅靠TCP探测无法发现，必须按查询结果熔断
+        /// </summary>
+        /// <param name="dns">DNS服务器</param>
+        private void ReportDnsFailure(IPEndPoint dns)
+        {
+            // 仅熔断公共DNS（53端口）；dnscrypt-proxy使用随机本地端口，是主力解析通道，不参与熔断
+            if (dns.Port != DNS_PORT)
+            {
+                return;
+            }
+
+            var count = this.dnsFailureCounts.AddOrUpdate(dns, 1, (_, value) => value + 1);
+            if (count >= DNS_FAILURE_THRESHOLD)
+            {
+                this.dnsStateCache.Set(dns, false, this.stateExpiration);
+                this.logger.LogWarning($"{dns}连续{count}次查询失败，{this.stateExpiration.TotalMinutes:0}分钟内不再使用");
+            }
+        }
+
+        /// <summary>
         /// 解析域名
         /// </summary>
         /// <param name="dns"></param>
@@ -250,15 +293,22 @@ namespace FastGithub.DomainResolve
                     return value;
                 }
                 var result = await this.LookupCoreAsync(dns, endPoint, fastSort, cancellationToken);
+                this.ReportDnsSuccess(dns);
                 return this.dnsLookupCache.Set(key, result.Addresses, result.TimeToLive);
             }
             catch (OperationCanceledException)
             {
+                // 调用方主动取消（如刷新超时）不算DNS本身的问题
+                if (cancellationToken.IsCancellationRequested == false)
+                {
+                    this.ReportDnsFailure(dns);
+                }
                 return Array.Empty<IPAddress>();
             }
             catch (Exception ex)
             {
                 this.logger.LogWarning($"{endPoint.Host}@{dns}->{ex.Message}");
+                this.ReportDnsFailure(dns);
                 var expiration = IsSocketException(ex) ? this.maxTimeToLive : this.minTimeToLive;
                 return this.dnsLookupCache.Set(key, Array.Empty<IPAddress>(), expiration);
             }
