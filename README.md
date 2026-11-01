@@ -12,8 +12,25 @@ GitHub 加速神器：解决 GitHub 打不开、头像与 Releases 无法加载�
 
 ---
 
+## 仓库与下载
+
+本项目在 Gitee 与 GitHub 双仓库同步维护，代码、发行版内容完全一致：
+
+| 平台 | 仓库地址 | 发行版下载 |
+|------|----------|-----------|
+| **Gitee**（国内可直连，推荐） | <https://gitee.com/yuan71058/fast-github> | <https://gitee.com/yuan71058/fast-github/releases> |
+| **GitHub**（原仓库） | <https://github.com/yuan71058/FastGithub> | <https://github.com/yuan71058/FastGithub/releases> |
+
+问题反馈与提交 Issue：<https://gitee.com/yuan71058/fast-github/issues> · <https://github.com/yuan71058/FastGithub/issues>
+
+> [!TIP]
+> 国内网络访问 GitHub 页面经常超时，**下载请优先用 Gitee 发行版**。托盘右键「检测更新」同样指向 Gitee 发行版页面，不会因为 GitHub 打不开而失效。
+
+---
+
 ## 目录
 
+- [仓库与下载](#仓库与下载)
 - [解决的问题](#解决的问题)
 - [工作原理](#工作原理)
 - [功能特性](#功能特性)
@@ -116,7 +133,7 @@ hosts 源与 DNS 都没给出可用 IP 时，`github.com` / `api.github.com` / `
 
 ### Windows（推荐）
 
-1. 下载发布包并解压
+1. 下载发布包并解压 —— [Gitee 发行版](https://gitee.com/yuan71058/fast-github/releases)（国内推荐）／ [GitHub Releases](https://github.com/yuan71058/FastGithub/releases)，选 `fastgithub_win-x64.zip`
 2. **以管理员身份**运行 `FastGithub.UI.exe`（驱动加载与证书安装需要管理员权限）
 3. 托盘右键 →「设置」，可开启开机自启与启动后最小化
 
@@ -344,6 +361,18 @@ v2.4.1 起已修复：
 ---
 
 ## 构建与开发
+
+### 获取源码
+
+```bash
+# Gitee（国内推荐）
+git clone https://gitee.com/yuan71058/fast-github.git
+
+# 或 GitHub
+git clone https://github.com/yuan71058/FastGithub.git
+```
+
+两个仓库可直接互相同步，若一边打不开可换另一边拉取。
 
 ### 环境要求
 
