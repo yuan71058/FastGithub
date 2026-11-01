@@ -215,13 +215,13 @@ namespace FastGithub.DomainResolve
         private static async Task<bool> CanHandshakeAsync(Socket socket, string host, CancellationToken cancellationToken)
         {
             using var stream = new NetworkStream(socket, ownsSocket: false);
-            using var sslStream = new SslStream(stream, leaveInnerStreamOpen: true, static (sender, certificate, chain, errors) => true);
+            using var sslStream = new SslStream(stream, leaveInnerStreamOpen: true, ValidateCertificateChain);
             try
             {
                 await sslStream.AuthenticateAsClientAsync(new SslClientAuthenticationOptions
                 {
                     TargetHost = host,
-                    RemoteCertificateValidationCallback = static (sender, certificate, chain, errors) => true
+                    RemoteCertificateValidationCallback = ValidateCertificateChain
                 }, cancellationToken);
                 return true;
             }
@@ -229,6 +229,21 @@ namespace FastGithub.DomainResolve
             {
                 return false;
             }
+        }
+
+        /// <summary>
+        /// 证书链校验：放行名称不匹配，但不接受链错误。
+        /// 污染IP后面是中间人，它总能完成握手并返回一张任意证书；如果这里接受任意证书，
+        /// 这类IP会因为"响应快"被排到候选头部，实际请求阶段却收不到数据，
+        /// 表现为页面一直转圈、并发请求大面积超时。
+        /// </summary>
+        private static bool ValidateCertificateChain(
+            object sender,
+            System.Security.Cryptography.X509Certificates.X509Certificate? certificate,
+            System.Security.Cryptography.X509Certificates.X509Chain? chain,
+            System.Net.Security.SslPolicyErrors errors)
+        {
+            return (errors & SslPolicyErrors.RemoteCertificateChainErrors) == 0;
         }
 
         /// <summary>

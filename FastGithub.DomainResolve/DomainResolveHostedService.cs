@@ -16,7 +16,13 @@ namespace FastGithub.DomainResolve
         private readonly HostsService hostsService;
         private readonly ILogger<DomainResolveHostedService> logger;
         private readonly TimeSpan dnscryptProxyInitDelay = TimeSpan.FromSeconds(5d);
-        private readonly TimeSpan testPeriodTimeSpan = TimeSpan.FromSeconds(1d);
+
+        /// <summary>
+        /// 测速周期。原值为1秒，等于每秒对全部域名×全部候选IP做一次TCP+TLS握手；
+        /// 域名有几十个、候选IP上百个时，每秒上百次握手会把出口带宽和DNS配额打满，
+        /// 反过来挤掉真实请求，表现为连接超时、DNS查询连续失败、页面转圈。
+        /// </summary>
+        private readonly TimeSpan testPeriodTimeSpan = TimeSpan.FromSeconds(60d);
         private readonly TimeSpan hostsRefreshPeriodTimeSpan = TimeSpan.FromHours(1d);
 
         /// <summary>

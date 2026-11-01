@@ -1,6 +1,6 @@
 # FastGithub
 
-![Version](https://img.shields.io/badge/version-2.4.5-blue)
+![Version](https://img.shields.io/badge/version-2.4.6-blue)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-informational)
 ![Framework](https://img.shields.io/badge/.NET-7.0-512BD4)
 ![UI](https://img.shields.io/badge/UI-WPF%20(net45)-9E9E9E)
