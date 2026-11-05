@@ -13,31 +13,48 @@ namespace FastGithub.Configuration
         private static readonly IPGlobalProperties global = IPGlobalProperties.GetIPGlobalProperties();
         private static readonly HashSet<int> tcpListenPorts = GetListenPorts(global.GetActiveTcpListeners);
         private static readonly HashSet<int> udpListenPorts = GetListenPorts(global.GetActiveUdpListeners);
+        private static readonly HashSet<int> reservedPorts = new();
+        private static readonly Dictionary<string, List<int>> occupiedPorts = new();
+        private static readonly object portLock = new();
+
+        /// <summary>
+        /// Windows下http反向代理的首选端口
+        /// </summary>
+        public const int HttpPreferredPort = 2000;
+
+        /// <summary>
+        /// Windows下https反向代理的首选端口
+        /// </summary>
+        public const int HttpsPreferredPort = 2000;
 
         /// <summary>
         /// ssh端口
         /// </summary>
-        public static int SshPort { get; } = GetAvailableTcpPort(22);
+        public static int SshPort { get; } = GetAvailablePort(CanListenTcp, 3000, "ssh");
 
         /// <summary>
         /// git端口
         /// </summary>
-        public static int GitPort { get; } = GetAvailableTcpPort(9418);
+        public static int GitPort { get; } = GetAvailablePort(CanListenTcp, 9418, "git");
 
         /// <summary>
         /// http端口
         /// </summary>
-        public static int HttpPort { get; } = OperatingSystem.IsWindows() ? GetAvailableTcpPort(80) : GetAvailableTcpPort(3880);
+        public static int HttpPort { get; } = OperatingSystem.IsWindows()
+            ? GetAvailablePort(CanListenTcp, HttpPreferredPort, "http")
+            : GetAvailableTcpPort(3880);
 
         /// <summary>
         /// https端口
         /// </summary>
-        public static int HttpsPort { get; } = OperatingSystem.IsWindows() ? GetAvailableTcpPort(443) : GetAvailableTcpPort(38443);
+        public static int HttpsPort { get; } = OperatingSystem.IsWindows()
+            ? GetAvailablePort(CanListenTcp, HttpsPreferredPort, "https")
+            : GetAvailableTcpPort(38443);
 
         /// <summary>
         /// UI内部通信端口
         /// </summary>
-        public static int UiHttpPort { get; } = GetAvailableTcpPort(45678);
+        public static int UiHttpPort { get; } = GetAvailablePort(CanListenTcp, 45678, "ui");
 
         /// <summary>
         /// 获取已监听的端口
@@ -121,19 +138,59 @@ namespace FastGithub.Configuration
         }
 
         /// <summary>
+        /// 获取探测端口时遇到的被占用端口
+        /// </summary>
+        /// <param name="name">服务名</param>
+        /// <returns></returns>
+        public static IReadOnlyList<int> GetOccupiedPorts(string name)
+        {
+            lock (portLock)
+            {
+                if (occupiedPorts.TryGetValue(name, out var occupied) == true)
+                {
+                    return occupied.ToArray();
+                }
+                return Array.Empty<int>();
+            }
+        }
+
+        /// <summary>
         /// 获取可用端口
         /// </summary>
         /// <param name="canFunc"></param>
         /// <param name="minPort"></param>
+        /// <param name="name">服务名，用于记录探测时被占用的端口</param>
         /// <returns></returns>
         /// <exception cref="FastGithubException"></exception>
-        private static int GetAvailablePort(Func<int, bool> canFunc, int minPort)
+        private static int GetAvailablePort(Func<int, bool> canFunc, int minPort, string? name = null)
         {
-            for (var port = minPort; port < IPEndPoint.MaxPort; port++)
+            lock (portLock)
             {
-                if (canFunc(port) == true)
+                for (var port = minPort; port < IPEndPoint.MaxPort; port++)
                 {
-                    return port;
+                    if (reservedPorts.Contains(port) == true)
+                    {
+                        continue;
+                    }
+
+                    if (canFunc(port) == true)
+                    {
+                        if (name != null)
+                        {
+                            reservedPorts.Add(port);
+                        }
+                        return port;
+                    }
+
+                    if (name != null)
+                    {
+                        if (occupiedPorts.TryGetValue(name, out var occupied) == false)
+                        {
+                            occupied = new List<int>();
+                            occupiedPorts[name] = occupied;
+                        }
+                        occupied.Add(port);
+                    }
                 }
             }
             throw new FastGithubException("当前无可用的端口");

@@ -1,6 +1,6 @@
 # FastGithub
 
-![Version](https://img.shields.io/badge/version-2.5.0-blue)
+![Version](https://img.shields.io/badge/version-2.6.0-blue)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-informational)
 ![Framework](https://img.shields.io/badge/.NET-7.0-512BD4)
 ![UI](https://img.shields.io/badge/UI-WPF%20(net45)-9E9E9E)
@@ -106,7 +106,7 @@ hosts 源与 DNS 都没给出可用 IP 时，`github.com` / `api.github.com` / `
 |------|---------|---------------|
 | DNS 劫持 | WinDivert 内核级拦截 | 不使用（依赖系统代理） |
 | TCP 端口重写 | WinDivert 内核级改写 | 不使用 |
-| 监听方式 | 80 / 443 / 22 / 9418 透明反向代理 | `HttpProxyPort`（默认 38457）正向代理 |
+| 监听方式 | 本地 2000 起（HTTP/HTTPS）、3000 起（SSH）、9418 透明反向代理，客户端仍连 80/443/22/9418 | `HttpProxyPort`（默认 38457）正向代理 |
 | CA 证书安装 | 自动（Windows 证书存储） | Linux 自动（需 root）；macOS 需手动信任 |
 | 额外配置 | 无需设置系统代理 | 需手动设置系统代理 |
 
@@ -180,9 +180,9 @@ docker-compose up -d
 
 | 端口 | 平台 | 说明 |
 |------|------|------|
-| 443 | Windows | HTTPS 反向代理（被占用则从该值向上递增） |
-| 80 | Windows | HTTP 反向代理 |
-| 22 | Windows | SSH 反向代理（github.com:22） |
+| 2000 起 | Windows | HTTP 反向代理（被占用时向后顺延，并在日志中提示） |
+| 2001 起 | Windows | HTTPS 反向代理（在 HTTP 端口之后继续分配） |
+| 3000 起 | Windows | SSH 反向代理（客户端仍连 `github.com:22`，被占用时向后顺延并提示） |
 | 9418 | Windows | Git 协议反向代理 |
 | 45678 | Windows | **UI 内部通信**（`/ping`、`/flowStatistics`、`/refresh-ip`），不是代理端口；被占用时向上顺延，UI 会自动探测 |
 | 38457 | Linux / macOS | HTTP 正向代理端口（`HttpProxyPort`），同时作为 UDP 日志默认端口 |
@@ -516,6 +516,23 @@ powershell -ExecutionPolicy Bypass -File .\tools\Update-FastGithubIp.ps1 -Root E
 ---
 
 ## 更新日志
+
+### v2.6.0 (2026-11-05)
+
+**端口策略版本**：Windows 下不再抢占 80/443/22 等系统标准端口，改为从高位端口自动分配；客户端使用方式不变。
+
+变更：
+
+- Windows 监听端口改为从固定高位起分配：**HTTP 2000 起、HTTPS 2000 起（顺延到下一个空闲端口）、SSH 3000 起**；Git 协议仍为 9418
+- 80 / 443 / 22 不再被本程序绑定，交给 WinDivert 透明改写回环流量到实际监听端口，`git` / 浏览器 / `ssh` 客户端无需任何配置
+- 端口被占用时自动向后顺延，并在启动日志中提示，例如 `端口2000已被占用，http反向代理服务已改用2002，请检查占用该端口的程序`
+- 已分配的端口统一预留，避免 HTTP 与 HTTPS 都从 2000 起探测时撞到同一端口
+- Linux / macOS 行为不变（仍为 `HttpProxyPort` 正向代理，默认 38457）
+
+说明：
+
+- 由于 80/443/22 不再直接绑定，Windows 下透明代理依赖 WinDivert 驱动（需管理员权限）；若驱动被安全软件拦截，客户端需手动改用 `38457` 正向代理
+- 本机若有其它程序占用 2000/3000 段，程序会自动顺延，功能不受影响
 
 ### v2.5.0 (2026-11-01)
 

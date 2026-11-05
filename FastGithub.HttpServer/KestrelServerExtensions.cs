@@ -72,7 +72,9 @@ namespace FastGithub
                 listen.UseConnectionHandler<GithubSshReverseProxyHandler>();
             });
 
-            kestrel.GetLogger().LogInformation($"已监听 ssh://localhost:{sshPort}，github的ssh反向代理服务启动完成");
+            var logger = kestrel.GetLogger();
+            LogOccupiedPorts(logger, "ssh反向代理", "ssh", sshPort);
+            logger.LogInformation($"已监听 ssh://localhost:{sshPort}，github的ssh反向代理服务启动完成");
         }
 
         /// <summary>
@@ -102,7 +104,9 @@ namespace FastGithub
 
             if (OperatingSystem.IsWindows())
             {
-                kestrel.GetLogger().LogInformation($"已监听 http://localhost:{httpPort}，http反向代理服务启动完成");
+                var logger = kestrel.GetLogger();
+                LogOccupiedPorts(logger, "http反向代理", "http", httpPort);
+                logger.LogInformation($"已监听 http://localhost:{httpPort}，http反向代理服务启动完成");
             }
         }
 
@@ -126,7 +130,24 @@ namespace FastGithub
             if (OperatingSystem.IsWindows())
             {
                 var logger = kestrel.GetLogger();
+                LogOccupiedPorts(logger, "https反向代理", "https", httpsPort);
                 logger.LogInformation($" 已监听 https://localhost:{httpsPort}，https反向代理服务启动完成");
+            }
+        }
+
+        /// <summary>
+        /// 记录探测端口时被占用的端口
+        /// </summary>
+        /// <param name="logger"></param>
+        /// <param name="service">服务名</param>
+        /// <param name="name">记录用的服务名</param>
+        /// <param name="port">实际使用的端口</param>
+        private static void LogOccupiedPorts(ILogger logger, string service, string name, int port)
+        {
+            var occupied = GlobalListener.GetOccupiedPorts(name);
+            if (occupied.Count > 0)
+            {
+                logger.LogWarning($"端口{string.Join("、", occupied)}已被占用，{service}服务已改用{port}，请检查占用该端口的程序");
             }
         }
 

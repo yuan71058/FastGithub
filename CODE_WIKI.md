@@ -1,6 +1,6 @@
 # FastGithub Code Wiki
 
-> 项目版本：2.1.5 | 目标框架：.NET 7.0 | 许可证：MIT
+> 项目版本：2.6.0 | 目标框架：.NET 7.0 | 许可证：MIT
 
 ---
 
@@ -92,9 +92,9 @@ Program.Main()
 
 | 平台 | 监听端口 | 用途 |
 |------|---------|------|
-| Windows | 443 (HTTPS) | HTTPS 反向代理 |
-| Windows | 80 (HTTP) | HTTP 反向代理 |
-| Windows | 22 (SSH) | SSH 反向代理 |
+| Windows | 2000 起 (HTTPS) | HTTPS 反向代理 |
+| Windows | 2000 起 (HTTP) | HTTP 反向代理 |
+| Windows | 3000 起 (SSH) | SSH 反向代理 |
 | Windows | 9418 (Git) | Git 协议反向代理 |
 | Linux/macOS | 38457 (HTTP) | 前向代理模式 |
 
@@ -562,12 +562,12 @@ dotnet publish FastGithub/FastGithub.csproj -c Release -r win-x64 --self-contain
 |------|---------|-------|
 | DNS 拦截 | WinDivert 内核级 | dnscrypt-proxy |
 | TCP 重写 | WinDivert 内核级 | 系统代理配置 |
-| 默认监听端口 | 80/443 | 38457 |
+| 默认监听端口 | 2000 起（HTTP/HTTPS）、3000 起（SSH） | 38457 |
 | 证书安装 | 自动 (证书存储) | 自动 (update-ca-certificates) |
 
 ### 7.4 全局端口管理
 
-`GlobalListener` 在静态构造函数中扫描系统所有已用 TCP/UDP 端口，然后从默认值（Windows: 80/443, Linux: 3880/38443）向上递增分配可用端口。
+`GlobalListener` 在静态初始化时扫描系统所有已用 TCP/UDP 端口，然后从默认值（Windows: HTTP/HTTPS 2000 起、SSH 3000 起，Linux: 3880/38443）向上递增分配可用端口；已分配的端口会被预留，被占用跳过的端口会记录并在启动日志中提示。
 
 ---
 
